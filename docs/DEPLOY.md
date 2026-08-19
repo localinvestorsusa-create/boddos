@@ -89,7 +89,45 @@ appends the code to guarded requests.
 - macOS (MacBook): `deploy/com.boddos.node.plist` (launchd).
 - Container: `docker build -t boddos . && docker run -p 8787:8787 -v $PWD/config:/config boddos`.
 
-## 7. Remote access (optional, recommended)
+## 7. Live assistant: voice, vision, push, drone
+
+**Always-on conversation.** On the **Advisor** tab tap **Go Live** — the phone
+listens, streams the reply token-by-token, speaks it aloud, then listens again.
+"Speak replies" also voices normal typed answers. Uses on-device browser speech;
+needs a secure context (HTTPS or localhost), so enable `security.tls_enabled` or
+use the WireGuard overlay for phone access.
+
+**Camera vision.** Pull a multimodal model once (`ollama pull llava`). On the
+**Vision** tab, **Start** the camera and ask a question — the frame is analyzed
+by the local model. Use the 🔄 button or the device dropdown to pick a camera;
+**smart glasses that present as a webcam appear here as a selectable device.**
+
+**External cameras.** Under Vision → External cameras, add one with just a name
+and a URL: a `snapshot` JPEG URL (most IP cams), an `mjpeg` stream, or `rtsp://`
+(RTSP needs `ffmpeg` on the host). Tap **Look** to have the node grab a frame and
+analyze it.
+
+**Pull models from the UI.** Advisor → "Add a model" pulls any Ollama model with
+a live progress bar.
+
+**Lock-screen alerts (Web Push).**
+```bash
+pip install 'boddos[push]'
+python -m boddos --new-vapid      # prints vapid_public / vapid_private
+```
+Put those under `services.push` with `enabled: true`, restart, then on the
+**Safety** tab tap **Enable push to this phone** and **Test**. Duress and missed
+check-ins now buzz the phone even when the app is closed. (Push requires HTTPS.)
+
+**Real drone control.**
+```bash
+pip install 'boddos[mavlink]'
+```
+Set `services.drone.enabled: true` and `endpoint` to your MAVLink link (e.g.
+`udp:0.0.0.0:14550` or `tcp:127.0.0.1:5760`). Commands: arm/disarm, takeoff,
+land, hover, rtl, goto. Without the extra, commands queue and report no backend.
+
+## 8. Remote access (optional, recommended)
 
 Do **not** port-forward to the internet. Put all machines + phone on a private
 overlay like **WireGuard** or **Tailscale**; then the same LAN URLs work from

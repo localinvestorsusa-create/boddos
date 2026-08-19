@@ -15,7 +15,7 @@ from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..config import Config
@@ -24,7 +24,8 @@ from ..models.base import ChatMessage
 from ..agent import OSAgent, fetch_url
 from ..services import get_forecast, translate_to_english, DroneAdapter, CallingAdapter
 from ..services.notify import Notifier
-from ..sensors import SensorFusion, Reading
+from ..services.push import PushManager
+from ..sensors import SensorFusion, Reading, CameraRegistry
 from ..safety import (
     DuressManager, TrackerDetector, ExposureAudit, DeadMansSwitch,
     scan_report, check_password, GeoFence, Zone,
@@ -43,7 +44,7 @@ ADVISOR_SYSTEM = (
 )
 
 # Paths reachable without a client token (so the UI can load and prompt for one).
-_AUTH_EXEMPT_PREFIXES = ("/health", "/ui", "/manifest")
+_AUTH_EXEMPT_PREFIXES = ("/health", "/ui", "/manifest", "/sw.js")
 
 
 class NodeState:
@@ -65,6 +66,11 @@ class NodeState:
         self.drone = DroneAdapter(cfg.services.drone)
         self.calling = CallingAdapter(cfg.services.calling)
         self.notifier = Notifier(cfg.services.notify)
+        self.push = PushManager(
+            cfg.services.push.vapid_public, cfg.services.push.vapid_private,
+            cfg.services.push.subject, cfg.services.push.store_file,
+        ) if cfg.services.push.enabled else None
+        self.cameras = CameraRegistry()
         self.fusion = SensorFusion()
         self.duress = DuressManager(cfg.safety)
         self.trackers = TrackerDetector(cfg.safety.tracker_follow_threshold)
@@ -127,12 +133,17 @@ def build_app(cfg: Config) -> FastAPI:
                 await _greet(peer)
             await asyncio.sleep(cfg.mesh.heartbeat_seconds)
 
+    async def _alert_push(title: str, body: str, data: dict | None = None) -> None:
+        if state.push and state.push.enabled:
+            await asyncio.to_thread(state.push.notify_all, title, body, data or {})
+
     async def _deadman_loop() -> None:
         while True:
             for c in state.deadman.due():
                 res = state.duress.trigger(note=f"missed check-in: {c.label}",
                                            location=state.duress.state.last_location)
                 delivery = await state.notifier.deliver_all(res["alerts"])
+                await _alert_push("BODDOS duress", f"Missed check-in: {c.label}")
                 state.audit.record("deadman.fire", {"label": c.label, "delivery": delivery})
                 await _broadcast(res["event"])
             await asyncio.sleep(5)
@@ -264,6 +275,78 @@ def build_app(cfg: Config) -> FastAPI:
         reply = await state.provider.chat(model, msgs)
         return {"reply": reply, "served_by": state.registry.me.id, "model": model}
 
+    def _build_messages(req: dict) -> list[ChatMessage]:
+        if "messages" in req:
+            msgs = [ChatMessage(m["role"], m["content"]) for m in req["messages"]]
+        else:
+            msgs = [ChatMessage("user", req.get("prompt", ""))]
+        if not any(m.role == "system" for m in msgs):
+            msgs.insert(0, ChatMessage("system", ADVISOR_SYSTEM))
+        return msgs
+
+    @app.post("/api/chat/stream")
+    async def api_chat_stream(req: dict, x_boddos_forwarded: str | None = Header(default=None)):
+        model = req.get("model") or cfg.models.default_model
+        msgs = _build_messages(req)
+        images = req.get("images")
+        target = state.router.select_model_node(model, state.local_models)
+
+        async def gen_local():
+            async for chunk in state.provider.chat_stream(model, msgs, images):
+                yield f"data: {json.dumps({'t': chunk})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'served_by': state.registry.me.id})}\n\n"
+
+        async def gen_peer():
+            try:
+                body, headers = state.signed(
+                    {"model": model, "messages": [m.to_dict() for m in msgs], "images": images},
+                    extra={"X-Boddos-Forwarded": "1"},
+                )
+                async with httpx.AsyncClient(timeout=None) as c:
+                    async with c.stream("POST", f"{target.url}/api/chat/stream",
+                                        content=body, headers=headers) as r:
+                        async for line in r.aiter_lines():
+                            if line:
+                                yield line + "\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'t': f'[peer {target.id} unreachable: {e}]'})}\n\n"
+                async for chunk in state.provider.chat_stream(model, msgs, images):
+                    yield f"data: {json.dumps({'t': chunk})}\n\n"
+                yield f"data: {json.dumps({'done': True})}\n\n"
+
+        use_peer = target.id != state.registry.me.id and not x_boddos_forwarded
+        gen = gen_peer if use_peer else gen_local
+        return StreamingResponse(gen(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    @app.post("/api/models/pull")
+    async def api_models_pull(req: dict):
+        model = req.get("model", "").strip()
+        if not model:
+            return JSONResponse({"error": "model required"}, status_code=400)
+        state.audit.record("models.pull", {"model": model})
+
+        async def gen():
+            async for prog in state.provider.pull(model):
+                yield f"data: {json.dumps(prog)}\n\n"
+            await _refresh_models()
+            yield f"data: {json.dumps({'done': True})}\n\n"
+
+        return StreamingResponse(gen(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache"})
+
+    @app.post("/api/vision")
+    async def api_vision(req: dict):
+        """Analyze an image (base64, no data: prefix) with the local vision model."""
+        image = req.get("image_b64", "")
+        if not image:
+            return {"ok": False, "error": "image_b64 required"}
+        prompt = req.get("prompt") or "Describe what you see. Note anything relevant to my safety or situation."
+        model = req.get("model") or cfg.models.vision_model
+        msgs = [ChatMessage("user", prompt)]
+        reply = await state.provider.chat(model, msgs, images=[image])
+        return {"ok": True, "model": model, "analysis": reply}
+
     # ---------------------------- agent ---------------------------
     @app.post("/api/agent/run")
     async def api_agent_run(req: dict):
@@ -340,11 +423,67 @@ def build_app(cfg: Config) -> FastAPI:
     async def api_sensors():
         return state.fusion.snapshot()
 
+    # --------------------------- cameras --------------------------
+    @app.get("/api/cameras")
+    async def api_cameras():
+        return {"cameras": state.cameras.list()}
+
+    @app.post("/api/cameras")
+    async def api_cameras_add(req: dict):
+        name, url = req.get("name", "").strip(), req.get("url", "").strip()
+        if not name or not url:
+            return {"ok": False, "error": "name and url required"}
+        cam = state.cameras.add(name, url, req.get("kind", "snapshot"), req.get("note", ""))
+        state.audit.record("camera.add", {"name": name, "kind": cam.kind})
+        return {"ok": True, "camera": cam.to_dict()}
+
+    @app.delete("/api/cameras/{name}")
+    async def api_cameras_del(name: str):
+        return {"ok": state.cameras.remove(name)}
+
+    @app.post("/api/cameras/{name}/analyze")
+    async def api_cameras_analyze(name: str, req: dict):
+        snap = await state.cameras.snapshot_b64(name)
+        if not snap.get("ok"):
+            return snap
+        prompt = req.get("prompt") or "Describe what this camera sees. Flag anything relevant to safety."
+        analysis = await state.provider.chat(
+            cfg.models.vision_model,
+            [ChatMessage("user", prompt)], images=[snap["image_b64"]],
+        )
+        return {"ok": True, "camera": name, "analysis": analysis}
+
+    # ---------------------------- push ----------------------------
+    @app.get("/api/push/publickey")
+    async def api_push_key():
+        if not (state.push and state.push.enabled):
+            return {"enabled": False}
+        return {"enabled": True, "public_key": cfg.services.push.vapid_public}
+
+    @app.post("/api/push/subscribe")
+    async def api_push_subscribe(req: dict):
+        if not (state.push and state.push.enabled):
+            return {"ok": False, "error": "push not configured"}
+        return state.push.subscribe(req.get("subscription", req))
+
+    @app.post("/api/push/unsubscribe")
+    async def api_push_unsubscribe(req: dict):
+        if not state.push:
+            return {"ok": False, "error": "push not configured"}
+        return state.push.unsubscribe(req.get("endpoint", ""))
+
+    @app.post("/api/push/test")
+    async def api_push_test():
+        await _alert_push("BODDOS", "Test notification — push is working.")
+        return {"ok": True, "subscriptions": state.push.count() if state.push else 0}
+
     # --------------------------- safety ---------------------------
     @app.post("/api/safety/duress")
     async def api_duress(req: dict):
         result = state.duress.trigger(req.get("note", ""), req.get("location"))
         delivery = await state.notifier.deliver_all(result["alerts"])
+        await _alert_push("BODDOS duress alert", req.get("note", "") or "I may need help",
+                          {"location": req.get("location")})
         result["delivery"] = delivery
         state.audit.record("safety.duress", {"note": req.get("note", ""), "delivery": delivery})
         await _broadcast(result["event"])
@@ -480,6 +619,14 @@ def build_app(cfg: Config) -> FastAPI:
         if idx.exists():
             return FileResponse(idx)
         return JSONResponse({"ok": True, "note": "BODDOS node up; UI not found"})
+
+    @app.get("/sw.js")
+    async def service_worker():
+        # Served at root so its scope covers the whole app (required for push).
+        sw = UI_DIR / "sw.js"
+        if sw.exists():
+            return FileResponse(sw, media_type="application/javascript")
+        return JSONResponse({"error": "no service worker"}, status_code=404)
 
     if UI_DIR.exists():
         app.mount("/ui", StaticFiles(directory=UI_DIR), name="ui")

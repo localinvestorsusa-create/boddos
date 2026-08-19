@@ -19,6 +19,10 @@ don't control.
 |------|--------|-------|
 | Distributed mesh across your machines | ✅ core | Nodes discover each other, share load |
 | Local LLM advisor ("Assistant") | ✅ core | Ollama-backed, any local model, pluggable |
+| Always-on live conversation | ✅ core | Continuous listen → stream → speak, hands-free |
+| Streaming replies + model pulling | ✅ core | Token-by-token SSE; pull models from the UI |
+| Camera vision (phone / glasses / external) | ✅ core | Local multimodal model; add cameras by URL |
+| Lock-screen alerts (Web Push) | ✅ safety | Duress reaches the phone even when closed |
 | OS agent for *your own* laptops | ✅ core | Allowlisted shell + web fetch/parse |
 | Weather-aware planning | ✅ core | Open-Meteo, no API key |
 | Live translation → English | ✅ core | Uses your local model; hands-free voice input |
@@ -35,7 +39,7 @@ don't control.
 | Your-own OSINT exposure audit | ✅ safety | What's public about *you*, so you can lock it down |
 | Hardened transport | ✅ security | Signed mesh, client auth, TLS, rate-limit, audit, vault |
 | TOTP 2FA | ✅ security | Second factor on agent / drone / vault actions |
-| Drone control (your drones) | 🔌 adapter | MAVLink-style stub, bring your own link |
+| Drone control (your drones) | ✅ adapter | Real MAVLink backend (`boddos[mavlink]`) + queue fallback |
 | Calling | 🔌 adapter | Provider stub |
 
 ## What it does NOT do

@@ -20,7 +20,8 @@ class ModelProvider(Protocol):
     async def list_models(self) -> list[str]:
         ...
 
-    async def chat(self, model: str, messages: list[ChatMessage]) -> str:
+    async def chat(self, model: str, messages: list[ChatMessage],
+                   images: list[str] | None = None) -> str:
         ...
 
     async def available(self) -> bool:

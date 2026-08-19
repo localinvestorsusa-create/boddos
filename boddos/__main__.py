@@ -18,6 +18,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=None, help="override bind port")
     parser.add_argument("--new-totp", action="store_true",
                         help="generate a TOTP 2FA secret + provisioning URI, then exit")
+    parser.add_argument("--new-vapid", action="store_true",
+                        help="generate Web Push VAPID keys for services.push, then exit")
     args = parser.parse_args(argv)
 
     if args.new_totp:
@@ -27,6 +29,30 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {secret}\n")
         print("Scan in your authenticator app:")
         print(f"  {totp.provisioning_uri(secret)}")
+        return 0
+
+    if args.new_vapid:
+        try:
+            from py_vapid import Vapid  # bundled with pywebpush
+            import base64
+        except Exception:
+            print("Install push support first: pip install 'boddos[push]'", file=sys.stderr)
+            return 2
+        v = Vapid()
+        v.generate_keys()
+
+        def b64(raw: bytes) -> str:
+            return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+        priv = b64(v.private_key.private_numbers().private_value.to_bytes(32, "big"))
+        pub = v.public_key.public_bytes(
+            __import__("cryptography").hazmat.primitives.serialization.Encoding.X962,
+            __import__("cryptography").hazmat.primitives.serialization.PublicFormat.UncompressedPoint,
+        )
+        print("Add to config under services.push:")
+        print(f"  enabled: true")
+        print(f"  vapid_public: \"{b64(pub)}\"")
+        print(f"  vapid_private: \"{priv}\"")
         return 0
 
     try:

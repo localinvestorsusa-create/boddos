@@ -28,6 +28,8 @@ models:
   ollama_url: "http://127.0.0.1:11434"
   # Default advisor model (must be pulled locally: `ollama pull llama3.1`).
   default_model: "llama3.1"
+  # Multimodal model for camera vision (`ollama pull llava`).
+  vision_model: "llava"
   # Capacity hint used by the mesh router to pick a host.
   ram_gb: 32
   has_gpu: true
@@ -71,6 +73,14 @@ services:
       password: ""        # prefer env BODDOS_SMTP_PASSWORD
       from_addr: ""
       use_tls: true
+  push:
+    # Web Push so duress alerts hit the phone lock screen.
+    # Needs `pip install 'boddos[push]'`; generate keys: `python -m boddos --new-vapid`
+    enabled: false
+    vapid_public: ""
+    vapid_private: ""
+    subject: "mailto:you@example.com"
+    store_file: "~/.boddos/push_subs.json"
 
 safety:
   # People to alert in a panic/duress event. YOUR contacts, consenting.

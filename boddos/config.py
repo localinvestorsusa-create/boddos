@@ -28,6 +28,8 @@ class ModelsCfg(BaseModel):
     provider: str = "ollama"
     ollama_url: str = "http://127.0.0.1:11434"
     default_model: str = "llama3.1"
+    # Multimodal model for camera vision (pull it: `ollama pull llava`).
+    vision_model: str = "llava"
     ram_gb: int = 8
     has_gpu: bool = False
 
@@ -76,12 +78,23 @@ class NotifyCfg(BaseModel):
     smtp: SmtpCfg = Field(default_factory=SmtpCfg)
 
 
+class PushCfg(BaseModel):
+    # Web Push (VAPID) so alerts reach the phone lock screen.
+    # Generate keys with: `python -m boddos --new-vapid`
+    enabled: bool = False
+    vapid_public: str = ""
+    vapid_private: str = ""
+    subject: str = "mailto:you@example.com"
+    store_file: str = "~/.boddos/push_subs.json"
+
+
 class ServicesCfg(BaseModel):
     weather: WeatherCfg = Field(default_factory=WeatherCfg)
     translate: TranslateCfg = Field(default_factory=TranslateCfg)
     calling: CallingCfg = Field(default_factory=CallingCfg)
     drone: DroneCfg = Field(default_factory=DroneCfg)
     notify: NotifyCfg = Field(default_factory=NotifyCfg)
+    push: PushCfg = Field(default_factory=PushCfg)
 
 
 class TrustedContact(BaseModel):

@@ -17,6 +17,7 @@
 
   <nav id="tabs">
     <button data-tab="advisor" class="active">Advisor</button>
+    <button data-tab="vision">Vision</button>
     <button data-tab="aware">Awareness</button>
     <button data-tab="safety">Safety</button>
     <button data-tab="tools">Tools</button>
@@ -24,6 +25,10 @@
 
   <main>
     <section id="advisor" class="tab active">
+      <div class="row" style="margin-bottom:8px">
+        <button type="button" id="liveBtn" class="mic">🎙️ Go Live</button>
+        <span id="liveState" class="muted">tap to start a hands-free conversation</span>
+      </div>
       <div id="chat" class="chat"></div>
       <form id="chatForm">
         <input id="chatInput" placeholder="Ask your advisor…" autocomplete="off" />
@@ -32,6 +37,47 @@
       </form>
       <div class="row">
         <select id="modelSel"><option>default</option></select>
+        <label><input type="checkbox" id="speakToggle" /> speak replies</label>
+      </div>
+      <details class="card" style="margin-top:8px">
+        <summary class="muted">Add a model (Ollama pull)</summary>
+        <form id="pullForm" style="margin-top:8px">
+          <input id="pullInput" placeholder="e.g. llama3.1 or llava" />
+          <button>Pull</button>
+        </form>
+        <div id="pullOut" class="muted"></div>
+      </details>
+    </section>
+
+    <section id="vision" class="tab">
+      <h2>Vision</h2>
+      <p class="muted">Uses your phone, smart-glasses, or an external camera as an eye. Frames are analyzed by the local vision model — nothing leaves your machines.</p>
+      <div class="card">
+        <video id="cam" playsinline autoplay muted style="width:100%;border-radius:8px;background:#000"></video>
+        <div class="row" style="margin-top:8px">
+          <select id="camSel"><option value="">default camera</option></select>
+          <button type="button" id="camStart">Start</button>
+          <button type="button" id="camFlip" class="mic" title="Switch camera">🔄</button>
+        </div>
+        <form id="visForm" style="margin-top:8px">
+          <input id="visPrompt" placeholder="Ask about what you see… (blank = describe)" />
+          <button>Look</button>
+        </form>
+        <div id="visOut" class="muted"></div>
+      </div>
+      <h3>External cameras</h3>
+      <div class="card">
+        <form id="extCamForm">
+          <input id="ecName" placeholder="name" style="max-width:110px" />
+          <input id="ecUrl" placeholder="snapshot / MJPEG / rtsp URL" />
+          <select id="ecKind" style="max-width:110px">
+            <option value="snapshot">snapshot</option>
+            <option value="mjpeg">mjpeg</option>
+            <option value="rtsp">rtsp</option>
+          </select>
+          <button>Add</button>
+        </form>
+        <div id="extCams" class="muted">No external cameras.</div>
       </div>
     </section>
 
@@ -77,6 +123,13 @@
         <button>Audit me</button>
       </form>
       <pre id="expOut" class="out"></pre>
+
+      <h3>Lock-screen alerts</h3>
+      <div class="card">
+        <button type="button" id="pushBtn">Enable push to this phone</button>
+        <button type="button" id="pushTest" class="mic">Test</button>
+        <div id="pushOut" class="muted"></div>
+      </div>
 
       <h3>Security posture</h3>
       <div id="secPosture" class="card muted">—</div>

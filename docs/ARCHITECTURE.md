@@ -21,10 +21,11 @@ Each node (`boddos/`) is a FastAPI app (`api/server.py`) composed of:
 | `mesh/node.py` | Node identity + in-memory peer registry (TTL'd heartbeats) |
 | `mesh/router.py` | Pick the best node to serve a model request |
 | `mesh/bus.py` | WebSocket event fan-out (safety/sensor/mesh events) |
-| `models/` | Local model provider (Ollama) + pluggable "Assistant" registry |
+| `models/` | Ollama provider: chat, streaming (SSE), model pull, multimodal vision |
 | `agent/` | Allowlisted OS agent + web fetch/parse (this machine only) |
-| `services/` | Weather, translation, drone/calling adapters, alert delivery (`notify.py`) |
+| `services/` | Weather, translation, MAVLink drone, calling, alert delivery (`notify.py`), Web Push (`push.py`) |
 | `sensors/fusion.py` | Ingest ESP32/phone readings → situational-awareness snapshot |
+| `sensors/cameras.py` | External camera registry + frame grabbing (snapshot/mjpeg/rtsp) |
 | `safety/` | Duress, dead-man's switch, tracker/surveillance/geofence/breach, exposure |
 | `security/` | Mesh signing, client auth, rate-limit, audit, vault, TLS, TOTP 2FA |
 | `ui/` | Phone PWA served by every node (chat, awareness, safety, tools, voice) |

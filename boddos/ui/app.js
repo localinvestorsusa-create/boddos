@@ -32,6 +32,7 @@ document.querySelectorAll("#tabs button").forEach((b) => {
     $("#" + b.dataset.tab).classList.add("active");
     if (b.dataset.tab === "aware") refreshSensors();
     if (b.dataset.tab === "safety") refreshSafety();
+    if (b.dataset.tab === "vision") { listCamDevices(); refreshExtCams(); }
   };
 });
 
@@ -58,24 +59,117 @@ function bubble(role, text) {
   $("#chat").scrollTop = $("#chat").scrollHeight;
   return d;
 }
+// Streaming send: renders tokens as they arrive, optionally speaks the reply.
+async function sendMessage(text, { speak = false } = {}) {
+  bubble("user", text);
+  history.push({ role: "user", content: text });
+  const out = bubble("bot", "");
+  let full = "";
+  try {
+    const model = $("#modelSel").value;
+    const headers = { "Content-Type": "application/json" };
+    if (TOKEN) headers["Authorization"] = "Bearer " + TOKEN;
+    const r = await fetch("/api/chat/stream", {
+      method: "POST", headers,
+      body: JSON.stringify({ model, messages: history }),
+    });
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        const obj = JSON.parse(line.slice(5).trim());
+        if (obj.t) { full += obj.t; out.textContent = full; $("#chat").scrollTop = $("#chat").scrollHeight; }
+        if (obj.served_by) out.title = "served by " + obj.served_by;
+      }
+    }
+  } catch (e) { out.textContent = "error: " + e; }
+  history.push({ role: "assistant", content: full });
+  if (speak && full) speakText(full);
+  return full;
+}
+
 $("#chatForm").onsubmit = async (e) => {
   e.preventDefault();
   const text = $("#chatInput").value.trim();
   if (!text) return;
   $("#chatInput").value = "";
-  bubble("user", text);
-  history.push({ role: "user", content: text });
-  const thinking = bubble("bot", "…");
-  try {
-    const model = $("#modelSel").value;
-    const r = await api("/api/chat", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model, messages: history }),
-    });
-    thinking.textContent = r.reply || r.note || "(no reply)";
-    if (r.served_by) thinking.title = "served by " + r.served_by;
-    history.push({ role: "assistant", content: r.reply || "" });
-  } catch (e) { thinking.textContent = "error: " + e; }
+  await sendMessage(text, { speak: $("#speakToggle").checked });
+};
+
+// ---- text-to-speech ----
+function speakText(text) {
+  if (!window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 1.05;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(u);
+}
+
+// ---- Live conversation mode: continuous listen -> stream -> speak ----
+let liveOn = false, liveRec = null;
+function setLive(on) {
+  liveOn = on;
+  $("#liveBtn").classList.toggle("rec", on);
+  $("#liveBtn").textContent = on ? "⏹️ Stop" : "🎙️ Go Live";
+  $("#liveState").textContent = on ? "listening…" : "tap to start a hands-free conversation";
+  if (on) startLive(); else if (liveRec) liveRec.stop();
+}
+function startLive() {
+  if (!SR) { alert("Speech recognition not supported here."); setLive(false); return; }
+  liveRec = new SR();
+  liveRec.lang = "";
+  liveRec.continuous = false;
+  liveRec.interimResults = false;
+  liveRec.onresult = async (e) => {
+    const text = e.results[0][0].transcript.trim();
+    if (!text) return;
+    $("#liveState").textContent = "thinking…";
+    liveRec.stop();
+    await sendMessage(text, { speak: true });
+  };
+  liveRec.onend = () => {
+    // Resume listening after the assistant finishes speaking.
+    if (!liveOn) return;
+    const wait = () => {
+      if (window.speechSynthesis && window.speechSynthesis.speaking) return setTimeout(wait, 300);
+      $("#liveState").textContent = "listening…";
+      try { liveRec.start(); } catch (e) {}
+    };
+    wait();
+  };
+  liveRec.onerror = () => {};
+  try { liveRec.start(); } catch (e) {}
+}
+$("#liveBtn").onclick = () => setLive(!liveOn);
+
+// ---- pull a model ----
+$("#pullForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const model = $("#pullInput").value.trim(); if (!model) return;
+  $("#pullOut").textContent = "Starting pull…";
+  const headers = { "Content-Type": "application/json" };
+  if (TOKEN) headers["Authorization"] = "Bearer " + TOKEN;
+  const r = await fetch("/api/models/pull", { method: "POST", headers, body: JSON.stringify({ model }) });
+  const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = "";
+  while (true) {
+    const { value, done } = await reader.read(); if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split("\n"); buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith("data:")) continue;
+      const o = JSON.parse(line.slice(5).trim());
+      if (o.done) { $("#pullOut").textContent = "✓ done"; boot(); }
+      else if (o.total) $("#pullOut").textContent = `${o.status} ${Math.round(100 * (o.completed || 0) / o.total)}%`;
+      else if (o.status) $("#pullOut").textContent = o.status;
+    }
+  }
 };
 
 // ---- panic / duress ----
@@ -261,6 +355,111 @@ if (SR) {
 } else {
   document.querySelectorAll(".mic").forEach((m) => (m.style.display = "none"));
 }
+
+// ---- vision: phone / glasses / external cameras ----
+let camStream = null, camDevices = [], camIndex = 0;
+async function listCamDevices() {
+  try {
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    camDevices = devs.filter((d) => d.kind === "videoinput");
+    const sel = $("#camSel");
+    sel.innerHTML = "";
+    camDevices.forEach((d, i) => {
+      const o = document.createElement("option");
+      o.value = d.deviceId; o.textContent = d.label || `Camera ${i + 1}`;
+      sel.appendChild(o);
+    });
+  } catch (e) {}
+}
+async function startCam(deviceId) {
+  if (camStream) camStream.getTracks().forEach((t) => t.stop());
+  const constraints = { video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "environment" }, audio: false };
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia(constraints);
+    $("#cam").srcObject = camStream;
+    await listCamDevices();   // labels populate after permission granted
+  } catch (e) { $("#visOut").textContent = "camera error: " + e; }
+}
+function grabFrameB64() {
+  const v = $("#cam");
+  if (!v.videoWidth) return null;
+  const cv = document.createElement("canvas");
+  cv.width = v.videoWidth; cv.height = v.videoHeight;
+  cv.getContext("2d").drawImage(v, 0, 0);
+  return cv.toDataURL("image/jpeg", 0.8).split(",")[1];   // strip data: prefix
+}
+$("#camStart").onclick = () => startCam($("#camSel").value);
+$("#camSel").onchange = () => startCam($("#camSel").value);
+$("#camFlip").onclick = () => {
+  if (!camDevices.length) return;
+  camIndex = (camIndex + 1) % camDevices.length;
+  $("#camSel").value = camDevices[camIndex].deviceId;
+  startCam(camDevices[camIndex].deviceId);
+};
+$("#visForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const image_b64 = grabFrameB64();
+  if (!image_b64) { $("#visOut").textContent = "Start the camera first."; return; }
+  $("#visOut").textContent = "Looking…";
+  const r = await api("/api/vision", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image_b64, prompt: $("#visPrompt").value.trim() }),
+  });
+  $("#visOut").textContent = r.ok ? r.analysis : (r.error || "vision unavailable");
+  if (r.ok && $("#speakToggle").checked) speakText(r.analysis);
+};
+
+// external cameras
+async function refreshExtCams() {
+  const r = await api("/api/cameras");
+  const el = $("#extCams");
+  if (!r.cameras || !r.cameras.length) { el.innerHTML = "No external cameras."; return; }
+  el.innerHTML = r.cameras.map((c) =>
+    `<div>• <b>${c.name}</b> <span class="muted">(${c.kind})</span>
+      <button onclick="analyzeCam('${c.name}')">Look</button>
+      <button onclick="delCam('${c.name}')">✕</button></div>
+      <div id="ec-${c.name}" class="muted"></div>`).join("");
+}
+window.analyzeCam = async (name) => {
+  $("#ec-" + name).textContent = "Looking…";
+  const r = await api(`/api/cameras/${encodeURIComponent(name)}/analyze`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+  });
+  $("#ec-" + name).textContent = r.ok ? r.analysis : (r.error || "failed");
+};
+window.delCam = async (name) => { await api(`/api/cameras/${encodeURIComponent(name)}`, { method: "DELETE" }); refreshExtCams(); };
+$("#extCamForm").onsubmit = async (e) => {
+  e.preventDefault();
+  await api("/api/cameras", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: $("#ecName").value.trim(), url: $("#ecUrl").value.trim(), kind: $("#ecKind").value }),
+  });
+  $("#ecName").value = ""; $("#ecUrl").value = "";
+  refreshExtCams();
+};
+
+// ---- Web Push (lock-screen alerts) ----
+function urlB64ToUint8(base64) {
+  const pad = "=".repeat((4 - (base64.length % 4)) % 4);
+  const b64 = (base64 + pad).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(b64); return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+async function enablePush() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) { $("#pushOut").textContent = "Push not supported here."; return; }
+  const key = await api("/api/push/publickey");
+  if (!key.enabled) { $("#pushOut").textContent = "Push not configured on the node (see docs)."; return; }
+  const reg = await navigator.serviceWorker.register("/sw.js");
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") { $("#pushOut").textContent = "Notification permission denied."; return; }
+  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(key.public_key) });
+  const r = await api("/api/push/subscribe", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ subscription: sub }),
+  });
+  $("#pushOut").textContent = r.ok ? "✓ Lock-screen alerts enabled." : (r.error || "failed");
+}
+$("#pushBtn").onclick = enablePush;
+$("#pushTest").onclick = async () => { const r = await api("/api/push/test", { method: "POST" }); $("#pushOut").textContent = `Sent to ${r.subscriptions} device(s).`; };
 
 // ---- live event bus ----
 try {
