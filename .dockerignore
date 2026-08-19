@@ -1,0 +1,11 @@
+.git
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+config/boddos.yaml
+*.egg-info
+build
+dist
+tests

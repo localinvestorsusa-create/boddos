@@ -238,6 +238,30 @@ $("#agForm").onsubmit = async (e) => {
   $("#agOut").textContent = r.ok ? (r.stdout || "(ok, no output)") : ("✗ " + (r.error || r.stderr));
 };
 
+// ---- voice input (Web Speech API) ----
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+function listen(btn, targetInput, opts = {}) {
+  if (!SR) { alert("Speech recognition not supported in this browser."); return; }
+  const rec = new SR();
+  rec.lang = opts.lang || "";           // "" lets the browser auto-detect
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+  btn.classList.add("rec");
+  rec.onresult = (e) => {
+    targetInput.value = e.results[0][0].transcript;
+    if (opts.autosubmit && targetInput.form) targetInput.form.requestSubmit();
+  };
+  rec.onerror = () => {};
+  rec.onend = () => btn.classList.remove("rec");
+  rec.start();
+}
+if (SR) {
+  $("#chatMic").onclick = () => listen($("#chatMic"), $("#chatInput"), { autosubmit: true });
+  $("#trMic").onclick = () => listen($("#trMic"), $("#trInput"), { autosubmit: true });
+} else {
+  document.querySelectorAll(".mic").forEach((m) => (m.style.display = "none"));
+}
+
 // ---- live event bus ----
 try {
   const wsUrl = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws" + (TOKEN ? "?token=" + encodeURIComponent(TOKEN) : "");

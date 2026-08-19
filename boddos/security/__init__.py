@@ -9,6 +9,7 @@ from .auth import MeshAuth, ClientAuth, constant_time_eq
 from .audit import AuditLog
 from .ratelimit import RateLimiter
 from .vault import SecretVault
+from . import totp
 
 __all__ = [
     "MeshAuth",
@@ -17,4 +18,5 @@ __all__ = [
     "AuditLog",
     "RateLimiter",
     "SecretVault",
+    "totp",
 ]

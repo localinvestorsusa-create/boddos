@@ -102,6 +102,26 @@ def test_security_status_and_audit_chain(client):
     assert s["audit"]["entries"] >= 1
 
 
+def test_2fa_guards_sensitive_action(tmp_path):
+    from boddos.security import totp
+    secret = totp.generate_secret()
+    cfg = Config(node=NodeCfg(id="tfa", role="host"))
+    cfg.agent.enabled = True
+    cfg.agent.allowed_commands = ["echo"]
+    cfg.agent.require_confirm = False
+    cfg.security.require_2fa = True
+    cfg.security.totp_secret = secret
+    cfg.security.audit_log = str(tmp_path / "a.log")
+    app = build_app(cfg)
+    with TestClient(app) as c:
+        # Missing/invalid code -> 403
+        assert c.post("/api/agent/run", json={"command": "echo hi"}).status_code == 403
+        # Valid code -> allowed
+        code = totp._hotp(secret, int(__import__("time").time() // 30))
+        r = c.post("/api/agent/run", json={"command": "echo hi", "totp": code})
+        assert r.status_code == 200 and r.json()["ok"] is True
+
+
 def test_client_auth_enforced(tmp_path):
     cfg = Config(node=NodeCfg(id="auth", role="host"))
     cfg.security.require_auth = True

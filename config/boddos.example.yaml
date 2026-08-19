@@ -59,6 +59,18 @@ services:
     enabled: false
     # e.g. "udp:127.0.0.1:14550" for a MAVLink endpoint you control
     endpoint: ""
+  notify:
+    # Delivers duress/dead-man alerts to trusted_contacts by their channel.
+    enabled: true
+    # SMS gateway URL template you control; {target} and {body} are substituted.
+    sms_webhook: ""
+    smtp:
+      host: ""            # e.g. "smtp.gmail.com"
+      port: 587
+      username: ""
+      password: ""        # prefer env BODDOS_SMTP_PASSWORD
+      from_addr: ""
+      use_tls: true
 
 safety:
   # People to alert in a panic/duress event. YOUR contacts, consenting.
@@ -99,3 +111,7 @@ security:
   audit_log: "~/.boddos/audit.log"
   # Encrypted secret vault (unlock at runtime via BODDOS_VAULT_PASSPHRASE).
   vault_file: "~/.boddos/vault.bin"
+  # Optional TOTP 2FA on sensitive actions (agent, drone, vault writes).
+  # Provision a secret: `python -m boddos --new-totp`
+  require_2fa: false
+  totp_secret: ""         # base32; or set env BODDOS_TOTP_SECRET

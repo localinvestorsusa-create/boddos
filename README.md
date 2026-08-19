@@ -21,10 +21,12 @@ don't control.
 | Local LLM advisor ("Assistant") | ✅ core | Ollama-backed, any local model, pluggable |
 | OS agent for *your own* laptops | ✅ core | Allowlisted shell + web fetch/parse |
 | Weather-aware planning | ✅ core | Open-Meteo, no API key |
-| Live translation → English | ✅ core | Uses your local model |
+| Live translation → English | ✅ core | Uses your local model; hands-free voice input |
+| Hands-free voice | ✅ core | Speak to the advisor / translator (Web Speech API) |
 | Environmental sensing (ESP32) | ✅ core | Wi-Fi/BLE discovery, magnetometer, mic, motion |
 | Sensor-fusion "situational awareness" | ✅ core | Real physics only — not X-ray vision |
 | Panic / duress mode + check-ins | ✅ safety | Trusted-contact alerts, location share |
+| Alert delivery | ✅ safety | Webhook / email (SMTP) / SMS gateway |
 | Dead-man's switch / check-in timer | ✅ safety | Miss a check-in → auto duress alert |
 | "Am I being tracked?" detection | ✅ safety | Rogue BLE / AirTag-style follower detection |
 | Surveillance scan | ✅ safety | Evil-twin AP + camera/tracker vendor fingerprint |
@@ -32,6 +34,7 @@ don't control.
 | Password breach check | ✅ safety | k-anonymity, only a hash prefix leaves the device |
 | Your-own OSINT exposure audit | ✅ safety | What's public about *you*, so you can lock it down |
 | Hardened transport | ✅ security | Signed mesh, client auth, TLS, rate-limit, audit, vault |
+| TOTP 2FA | ✅ security | Second factor on agent / drone / vault actions |
 | Drone control (your drones) | 🔌 adapter | MAVLink-style stub, bring your own link |
 | Calling | 🔌 adapter | Provider stub |
 

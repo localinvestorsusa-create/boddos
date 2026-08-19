@@ -16,7 +16,18 @@ def main(argv: list[str] | None = None) -> int:
                         help="path to node config YAML")
     parser.add_argument("--host", default=None, help="override bind host")
     parser.add_argument("--port", type=int, default=None, help="override bind port")
+    parser.add_argument("--new-totp", action="store_true",
+                        help="generate a TOTP 2FA secret + provisioning URI, then exit")
     args = parser.parse_args(argv)
+
+    if args.new_totp:
+        from .security import totp
+        secret = totp.generate_secret()
+        print("Add to config security.totp_secret (or env BODDOS_TOTP_SECRET):")
+        print(f"  {secret}\n")
+        print("Scan in your authenticator app:")
+        print(f"  {totp.provisioning_uri(secret)}")
+        return 0
 
     try:
         cfg = load_config(args.config)

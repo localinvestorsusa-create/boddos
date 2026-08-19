@@ -64,7 +64,32 @@ at; if the MacBook is off, use the ZBook's IP.
 Flash `firmware/esp32/boddos_sensor/` (see its README), setting `NODE_URL` to the
 MacBook's `/api/sensors/ingest`. Readings show up under **Awareness**.
 
-## 6. Remote access (optional, recommended)
+## 6. Alerts, 2FA, and running as a service
+
+**Alert delivery.** Duress and dead-man's-switch alerts go to `trusted_contacts`
+by their `channel`:
+- `webhook` — set `target` to a URL you control (ntfy, Home Assistant, your bot).
+  Works with no extra config.
+- `email` — fill `services.notify.smtp` (use `BODDOS_SMTP_PASSWORD` for the
+  password rather than plaintext).
+- `sms` — set `services.notify.sms_webhook` to your own gateway URL template
+  (`{target}` / `{body}` are substituted).
+
+**2FA (optional).** Require a TOTP code on sensitive actions (OS agent, drone,
+vault writes):
+```bash
+python -m boddos --new-totp          # prints a secret + otpauth:// URI
+```
+Add the secret to `security.totp_secret` (or `BODDOS_TOTP_SECRET`), set
+`security.require_2fa: true`, and scan the URI into an authenticator app. The UI
+appends the code to guarded requests.
+
+**Run as a service.**
+- Linux (HP/ZBook): `deploy/boddos.service` (systemd) — see the header comments.
+- macOS (MacBook): `deploy/com.boddos.node.plist` (launchd).
+- Container: `docker build -t boddos . && docker run -p 8787:8787 -v $PWD/config:/config boddos`.
+
+## 7. Remote access (optional, recommended)
 
 Do **not** port-forward to the internet. Put all machines + phone on a private
 overlay like **WireGuard** or **Tailscale**; then the same LAN URLs work from

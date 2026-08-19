@@ -23,12 +23,13 @@ from ..models import OllamaProvider
 from ..models.base import ChatMessage
 from ..agent import OSAgent, fetch_url
 from ..services import get_forecast, translate_to_english, DroneAdapter, CallingAdapter
+from ..services.notify import Notifier
 from ..sensors import SensorFusion, Reading
 from ..safety import (
     DuressManager, TrackerDetector, ExposureAudit, DeadMansSwitch,
     scan_report, check_password, GeoFence, Zone,
 )
-from ..security import MeshAuth, ClientAuth, AuditLog, RateLimiter, SecretVault
+from ..security import MeshAuth, ClientAuth, AuditLog, RateLimiter, SecretVault, totp
 from ..mesh import NodeInfo, MeshRegistry, Router
 from ..mesh.bus import EventBus
 
@@ -63,6 +64,7 @@ class NodeState:
         self.agent = OSAgent(cfg.agent)
         self.drone = DroneAdapter(cfg.services.drone)
         self.calling = CallingAdapter(cfg.services.calling)
+        self.notifier = Notifier(cfg.services.notify)
         self.fusion = SensorFusion()
         self.duress = DuressManager(cfg.safety)
         self.trackers = TrackerDetector(cfg.safety.tracker_follow_threshold)
@@ -130,7 +132,8 @@ def build_app(cfg: Config) -> FastAPI:
             for c in state.deadman.due():
                 res = state.duress.trigger(note=f"missed check-in: {c.label}",
                                            location=state.duress.state.last_location)
-                state.audit.record("deadman.fire", {"label": c.label})
+                delivery = await state.notifier.deliver_all(res["alerts"])
+                state.audit.record("deadman.fire", {"label": c.label, "delivery": delivery})
                 await _broadcast(res["event"])
             await asyncio.sleep(5)
 
@@ -183,6 +186,15 @@ def build_app(cfg: Config) -> FastAPI:
             return json.loads(body or b"{}")
         except Exception:
             raise HTTPException(status_code=400, detail="bad json body")
+
+    def _require_2fa(req: dict, action: str) -> None:
+        """Enforce a TOTP code on sensitive actions when 2FA is enabled."""
+        if not (cfg.security.require_2fa and cfg.security.totp_secret):
+            return
+        code = str(req.get("totp", "")) if isinstance(req, dict) else ""
+        if not totp.verify(cfg.security.totp_secret, code):
+            state.audit.record("twofa.fail", {"action": action})
+            raise HTTPException(status_code=403, detail="valid TOTP code required")
 
     # ---------------------------- mesh ----------------------------
     @app.post("/mesh/hello")
@@ -255,6 +267,7 @@ def build_app(cfg: Config) -> FastAPI:
     # ---------------------------- agent ---------------------------
     @app.post("/api/agent/run")
     async def api_agent_run(req: dict):
+        _require_2fa(req, "agent.run")
         command = req.get("command", "")
         res = await state.agent.run(command, confirm=bool(req.get("confirm")))
         state.audit.record("agent.run", {"command": command, "ok": res.ok,
@@ -282,6 +295,7 @@ def build_app(cfg: Config) -> FastAPI:
 
     @app.post("/api/drone")
     async def api_drone(req: dict):
+        _require_2fa(req, "drone.command")
         action = req.get("action", "")
         res = await state.drone.command(action, req.get("params"))
         state.audit.record("drone.command", {"action": action, "ok": res.get("ok")})
@@ -330,7 +344,9 @@ def build_app(cfg: Config) -> FastAPI:
     @app.post("/api/safety/duress")
     async def api_duress(req: dict):
         result = state.duress.trigger(req.get("note", ""), req.get("location"))
-        state.audit.record("safety.duress", {"note": req.get("note", "")})
+        delivery = await state.notifier.deliver_all(result["alerts"])
+        result["delivery"] = delivery
+        state.audit.record("safety.duress", {"note": req.get("note", ""), "delivery": delivery})
         await _broadcast(result["event"])
         return result
 
@@ -399,6 +415,7 @@ def build_app(cfg: Config) -> FastAPI:
             "require_auth": state.client_auth.require,
             "tls_enabled": cfg.security.tls_enabled,
             "mesh_signing": True,
+            "two_factor": bool(cfg.security.require_2fa and cfg.security.totp_secret),
             "audit": {"intact": intact, "entries": checked, "recent": state.audit.tail(20)},
             "vault_unlocked": state.vault.unlocked,
         }
@@ -414,11 +431,23 @@ def build_app(cfg: Config) -> FastAPI:
 
     @app.post("/api/security/vault/set")
     async def api_vault_set(req: dict):
+        _require_2fa(req, "vault.set")
         if not state.vault.unlocked:
             return {"ok": False, "error": "vault locked (set BODDOS_VAULT_PASSPHRASE)"}
         state.vault.set(req.get("name", ""), req.get("value"))
         state.audit.record("vault.set", {"name": req.get("name", "")})
         return {"ok": True}
+
+    @app.get("/api/security/2fa")
+    async def api_2fa_status():
+        return {"enabled": bool(cfg.security.require_2fa and cfg.security.totp_secret),
+                "configured": bool(cfg.security.totp_secret)}
+
+    @app.post("/api/security/2fa/verify")
+    async def api_2fa_verify(req: dict):
+        if not cfg.security.totp_secret:
+            return {"ok": False, "error": "no TOTP secret configured"}
+        return {"ok": totp.verify(cfg.security.totp_secret, str(req.get("code", "")))}
 
     # --------------------------- websocket ------------------------
     @app.websocket("/ws")

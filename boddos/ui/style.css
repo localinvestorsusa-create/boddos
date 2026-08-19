@@ -50,3 +50,5 @@ button { background: var(--accent); color: #04121c; border: 0; border-radius: 8p
 .alert { border-color: var(--danger); }
 .badge { color: var(--danger); font-weight: 700; }
 label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.mic { background: var(--panel2); border: 1px solid var(--border); padding: 8px 12px; }
+.mic.rec { background: var(--danger); color: #fff; }

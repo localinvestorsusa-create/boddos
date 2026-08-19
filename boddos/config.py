@@ -60,11 +60,28 @@ class DroneCfg(BaseModel):
     endpoint: str = ""
 
 
+class SmtpCfg(BaseModel):
+    host: str = ""
+    port: int = 587
+    username: str = ""
+    password: str = ""
+    from_addr: str = ""
+    use_tls: bool = True
+
+
+class NotifyCfg(BaseModel):
+    enabled: bool = True
+    # SMS gateway URL template you control; {target} and {body} are substituted.
+    sms_webhook: str = ""
+    smtp: SmtpCfg = Field(default_factory=SmtpCfg)
+
+
 class ServicesCfg(BaseModel):
     weather: WeatherCfg = Field(default_factory=WeatherCfg)
     translate: TranslateCfg = Field(default_factory=TranslateCfg)
     calling: CallingCfg = Field(default_factory=CallingCfg)
     drone: DroneCfg = Field(default_factory=DroneCfg)
+    notify: NotifyCfg = Field(default_factory=NotifyCfg)
 
 
 class TrustedContact(BaseModel):
@@ -106,6 +123,9 @@ class SecurityCfg(BaseModel):
     audit_log: str = "~/.boddos/audit.log"
     # Encrypted vault file (unlocked via BODDOS_VAULT_PASSPHRASE).
     vault_file: str = "~/.boddos/vault.bin"
+    # Optional TOTP 2FA on sensitive actions (agent, drone, vault writes).
+    require_2fa: bool = False
+    totp_secret: str = ""   # base32; provision via `python -m boddos.security.totp`
 
 
 class Config(BaseModel):
@@ -139,4 +159,6 @@ def load_config(path: str | os.PathLike) -> Config:
         cfg.mesh.psk = v
     if v := os.environ.get("BODDOS_API_TOKEN"):
         cfg.security.api_token = v
+    if v := os.environ.get("BODDOS_TOTP_SECRET"):
+        cfg.security.totp_secret = v
     return cfg

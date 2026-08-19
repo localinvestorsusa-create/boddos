@@ -6,6 +6,9 @@ from boddos.security.auth import MeshAuth, ClientAuth, constant_time_eq
 from boddos.security.audit import AuditLog
 from boddos.security.ratelimit import RateLimiter
 from boddos.security.vault import SecretVault
+from boddos.security import totp
+from boddos.config import NotifyCfg, SmtpCfg
+from boddos.services.notify import Notifier
 from boddos.safety.surveillance import evil_twin_candidates, fingerprint_devices
 from boddos.safety.geofence import GeoFence, Zone, haversine_m
 from boddos.safety.deadman import DeadMansSwitch
@@ -119,6 +122,41 @@ def test_haversine_reasonable():
     # ~111 km per degree of latitude.
     d = haversine_m(40.0, -74.0, 41.0, -74.0)
     assert 110000 < d < 112000
+
+
+def test_totp_verify_roundtrip():
+    secret = totp.generate_secret()
+    counter = int(time.time() // 30)
+    code = totp._hotp(secret, counter)
+    assert totp.verify(secret, code)
+    assert not totp.verify(secret, "000000") or code == "000000"
+
+
+def test_totp_rejects_wrong_and_empty():
+    secret = totp.generate_secret()
+    assert not totp.verify(secret, "")
+    assert not totp.verify("", "123456")
+
+
+def test_totp_provisioning_uri():
+    uri = totp.provisioning_uri("ABCDEF", account="me")
+    assert uri.startswith("otpauth://totp/") and "secret=ABCDEF" in uri
+
+
+async def test_notifier_disabled_returns_error():
+    n = Notifier(NotifyCfg(enabled=False))
+    res = await n.deliver_all([{"to": "Alex", "channel": "webhook", "target": "http://x"}])
+    assert res[0]["ok"] is False and "disabled" in res[0]["error"]
+
+
+async def test_notifier_missing_config_paths():
+    n = Notifier(NotifyCfg(enabled=True, sms_webhook="", smtp=SmtpCfg(host="")))
+    res = await n.deliver_all([
+        {"to": "A", "channel": "sms", "target": "+1", "body": "hi"},
+        {"to": "B", "channel": "email", "target": "b@x", "body": "hi"},
+        {"to": "C", "channel": "webhook", "target": "", "body": "hi"},
+    ])
+    assert all(r["ok"] is False for r in res)
 
 
 def test_deadman_fires_when_overdue():
