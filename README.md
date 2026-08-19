@@ -67,7 +67,25 @@ from across a room).
                           └─────────────┘
 ```
 
-## Quick start (one node)
+## Install
+
+**One line per computer** (macOS / Linux) — clones, installs, offers to set up
+Ollama + models, and writes a config with fresh secrets:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/localinvestorsusa-create/boddos/claude/personal-security-assistant-yi36rv/install.sh | bash
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/localinvestorsusa-create/boddos/claude/personal-security-assistant-yi36rv/install.ps1 | iex
+```
+
+**Phone, tablet, smart glasses:** no download — open the running node's URL in the
+browser and **Add to Home Screen**. It installs as an app (that's the PWA).
+
+Manual, if you prefer:
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
