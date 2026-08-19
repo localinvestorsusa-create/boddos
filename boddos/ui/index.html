@@ -43,14 +43,42 @@
     <section id="safety" class="tab">
       <h2>Safety</h2>
       <div id="duressState" class="card"></div>
+
+      <h3>Dead-man's switch</h3>
+      <div class="card">
+        <form id="dmForm">
+          <input id="dmLabel" placeholder="label (e.g. walk home)" />
+          <input id="dmMins" type="number" placeholder="min" value="30" style="max-width:80px" />
+          <label><input type="checkbox" id="dmRecur" /> repeat</label>
+          <button>Arm</button>
+        </form>
+        <div id="dmList" class="muted">No active check-ins.</div>
+      </div>
+
       <h3>Possible followers</h3>
       <div id="trackers" class="cards"><p class="muted">No suspicious trackers detected.</p></div>
+
+      <h3>Surveillance scan</h3>
+      <div id="surv" class="cards"><p class="muted">No scan data yet.</p></div>
+
+      <h3>Password breach check</h3>
+      <div class="card">
+        <form id="brForm">
+          <input id="brInput" type="password" placeholder="a password to check (stays private)" />
+          <button>Check</button>
+        </form>
+        <div id="brOut" class="muted"></div>
+      </div>
+
       <h3>My exposure audit</h3>
       <form id="expForm">
         <input id="expInput" placeholder="your email / phone / username" />
         <button>Audit me</button>
       </form>
       <pre id="expOut" class="out"></pre>
+
+      <h3>Security posture</h3>
+      <div id="secPosture" class="card muted">—</div>
     </section>
 
     <section id="tools" class="tab">

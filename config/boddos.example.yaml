@@ -71,3 +71,31 @@ safety:
   # Tracker detection: flag an unknown BLE device seen following you
   # across this many distinct locations/time windows.
   tracker_follow_threshold: 3
+  # Geofenced zones. "safe" = expected; leaving all safe zones raises an alert.
+  # "danger" = entering raises an alert. Pair with the dead-man's switch.
+  geofences:
+    - name: "home"
+      lat: 40.7128
+      lon: -74.0060
+      radius_m: 150
+      kind: "safe"
+
+security:
+  # Require a bearer token for the phone/UI API. If enabled with no api_token,
+  # one is generated and printed at startup (also settable via BODDOS_API_TOKEN).
+  require_auth: false
+  api_token: ""
+  # Serve HTTPS with a self-signed cert (auto-generated if missing). Trust it
+  # once on your phone, or use a WireGuard overlay for remote access.
+  tls_enabled: false
+  tls_cert: "~/.boddos/cert.pem"
+  tls_key: "~/.boddos/key.pem"
+  # Abuse / brute-force protection.
+  rate_per_sec: 5.0
+  rate_burst: 20.0
+  lockout_threshold: 8
+  lockout_seconds: 300
+  # Tamper-evident audit log of sensitive actions (hash-chained).
+  audit_log: "~/.boddos/audit.log"
+  # Encrypted secret vault (unlock at runtime via BODDOS_VAULT_PASSPHRASE).
+  vault_file: "~/.boddos/vault.bin"

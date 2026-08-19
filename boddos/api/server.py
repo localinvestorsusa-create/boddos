@@ -1,18 +1,20 @@
 """FastAPI application factory for a BODDOS node.
 
 Brings together: mesh registry/router, local model provider, OS agent, services,
-sensor fusion, and the safety modules — behind one HTTP + WebSocket API that the
-phone PWA and peer nodes talk to.
+sensor fusion, the safety modules, and the security layer (mesh request signing,
+client auth, rate limiting, audit log, encrypted vault) behind one HTTP +
+WebSocket API that the phone PWA and peer nodes talk to.
 """
 from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -22,7 +24,11 @@ from ..models.base import ChatMessage
 from ..agent import OSAgent, fetch_url
 from ..services import get_forecast, translate_to_english, DroneAdapter, CallingAdapter
 from ..sensors import SensorFusion, Reading
-from ..safety import DuressManager, TrackerDetector, ExposureAudit
+from ..safety import (
+    DuressManager, TrackerDetector, ExposureAudit, DeadMansSwitch,
+    scan_report, check_password, GeoFence, Zone,
+)
+from ..security import MeshAuth, ClientAuth, AuditLog, RateLimiter, SecretVault
 from ..mesh import NodeInfo, MeshRegistry, Router
 from ..mesh.bus import EventBus
 
@@ -34,6 +40,9 @@ ADVISOR_SYSTEM = (
     "user protect themselves and get things done. You do not help surveil, "
     "deceive, or manipulate other people."
 )
+
+# Paths reachable without a client token (so the UI can load and prompt for one).
+_AUTH_EXEMPT_PREFIXES = ("/health", "/ui", "/manifest")
 
 
 class NodeState:
@@ -58,35 +67,54 @@ class NodeState:
         self.duress = DuressManager(cfg.safety)
         self.trackers = TrackerDetector(cfg.safety.tracker_follow_threshold)
         self.exposure = ExposureAudit(self.provider, cfg.services.translate.model)
+        self.deadman = DeadMansSwitch()
+        self.geofence = GeoFence([
+            Zone(z.name, z.lat, z.lon, z.radius_m, z.kind) for z in cfg.safety.geofences
+        ])
+        self.last_surveillance: dict = {"clear": True, "evil_twin_candidates": [], "flagged_devices": []}
         self.bus = EventBus()
         self.local_models: list[str] = []
+
+        # --- security ---
+        self.mesh_auth = MeshAuth(cfg.mesh.psk)
+        if cfg.security.require_auth and not cfg.security.api_token:
+            cfg.security.api_token = ClientAuth.generate_token()
+            print(f"[security] generated API token: {cfg.security.api_token}")
+        self.client_auth = ClientAuth(cfg.security.api_token, cfg.security.require_auth)
+        self.audit = AuditLog(cfg.security.audit_log)
+        self.ratelimit = RateLimiter(
+            rate_per_sec=cfg.security.rate_per_sec,
+            capacity=cfg.security.rate_burst,
+            lockout_threshold=cfg.security.lockout_threshold,
+            lockout_seconds=cfg.security.lockout_seconds,
+        )
+        self.vault = SecretVault(cfg.security.vault_file)
 
     def hello_payload(self) -> dict:
         me = self.registry.me
         me.models = self.local_models
         return me.to_dict()
 
-
-def _check_psk(state: NodeState, psk: str | None) -> None:
-    if psk != state.cfg.mesh.psk:
-        raise HTTPException(status_code=401, detail="bad or missing mesh PSK")
+    def signed(self, payload: dict, extra: dict | None = None) -> tuple[bytes, dict]:
+        body = json.dumps(payload).encode()
+        headers = self.mesh_auth.sign(body)
+        headers["Content-Type"] = "application/json"
+        if extra:
+            headers.update(extra)
+        return body, headers
 
 
 def build_app(cfg: Config) -> FastAPI:
     state = NodeState(cfg)
 
-    # ---- background: refresh local models, greet peers, heartbeat ----
     async def _refresh_models() -> None:
         state.local_models = await state.provider.list_models()
 
     async def _greet(peer: str) -> None:
         try:
+            body, headers = state.signed(state.hello_payload())
             async with httpx.AsyncClient(timeout=5.0) as c:
-                await c.post(
-                    f"{peer.rstrip('/')}/mesh/hello",
-                    json=state.hello_payload(),
-                    headers={"X-Boddos-PSK": cfg.mesh.psk},
-                )
+                await c.post(f"{peer.rstrip('/')}/mesh/hello", content=body, headers=headers)
         except Exception:
             pass
 
@@ -97,24 +125,69 @@ def build_app(cfg: Config) -> FastAPI:
                 await _greet(peer)
             await asyncio.sleep(cfg.mesh.heartbeat_seconds)
 
+    async def _deadman_loop() -> None:
+        while True:
+            for c in state.deadman.due():
+                res = state.duress.trigger(note=f"missed check-in: {c.label}",
+                                           location=state.duress.state.last_location)
+                state.audit.record("deadman.fire", {"label": c.label})
+                await _broadcast(res["event"])
+            await asyncio.sleep(5)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         await _refresh_models()
-        task = asyncio.create_task(_heartbeat_loop())
+        tasks = [asyncio.create_task(_heartbeat_loop()),
+                 asyncio.create_task(_deadman_loop())]
         try:
             yield
         finally:
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
+            for t in tasks:
+                t.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await t
 
     app = FastAPI(title="BODDOS", version="0.1.0", lifespan=lifespan)
     app.state.node = state
 
+    # ----------------------- security middleware ------------------
+    @app.middleware("http")
+    async def _guard(request: Request, call_next):
+        client = request.client.host if request.client else "unknown"
+        path = request.url.path
+
+        if path == "/" or any(path.startswith(p) for p in _AUTH_EXEMPT_PREFIXES):
+            return await call_next(request)
+
+        if state.ratelimit.is_locked(client):
+            return JSONResponse({"detail": "temporarily locked out"}, status_code=429)
+        if not state.ratelimit.allow(client):
+            return JSONResponse({"detail": "rate limit exceeded"}, status_code=429)
+
+        # Client-token gate for the phone/UI API (mesh uses HMAC in-handler).
+        if path.startswith("/api/") and state.client_auth.require:
+            if not state.client_auth.check(request.headers.get("authorization")):
+                state.ratelimit.record_failure(client)
+                state.audit.record("auth.fail", {"path": path, "client": client})
+                return JSONResponse({"detail": "unauthorized"}, status_code=401)
+            state.ratelimit.record_success(client)
+        return await call_next(request)
+
+    async def _verify_mesh(request: Request) -> dict:
+        body = await request.body()
+        ok, reason = state.mesh_auth.verify(dict(request.headers), body)
+        if not ok:
+            state.audit.record("mesh.auth_fail", {"reason": reason})
+            raise HTTPException(status_code=401, detail=f"mesh auth: {reason}")
+        try:
+            return json.loads(body or b"{}")
+        except Exception:
+            raise HTTPException(status_code=400, detail="bad json body")
+
     # ---------------------------- mesh ----------------------------
     @app.post("/mesh/hello")
-    async def mesh_hello(payload: dict, x_boddos_psk: str | None = Header(default=None)):
-        _check_psk(state, x_boddos_psk)
+    async def mesh_hello(request: Request):
+        payload = await _verify_mesh(request)
         state.registry.from_hello(payload)
         return {"ok": True, "me": state.hello_payload()}
 
@@ -123,8 +196,8 @@ def build_app(cfg: Config) -> FastAPI:
         return {"nodes": [n.to_dict() for n in state.registry.all_nodes()]}
 
     @app.post("/mesh/event")
-    async def mesh_event(event: dict, x_boddos_psk: str | None = Header(default=None)):
-        _check_psk(state, x_boddos_psk)
+    async def mesh_event(request: Request):
+        event = await _verify_mesh(request)
         await state.bus.publish({**event, "_relayed": True})
         return {"ok": True}
 
@@ -133,9 +206,9 @@ def build_app(cfg: Config) -> FastAPI:
         if cfg.safety.broadcast:
             for peer in cfg.mesh.peers:
                 try:
+                    body, headers = state.signed(event)
                     async with httpx.AsyncClient(timeout=4.0) as c:
-                        await c.post(f"{peer.rstrip('/')}/mesh/event", json=event,
-                                     headers={"X-Boddos-PSK": cfg.mesh.psk})
+                        await c.post(f"{peer.rstrip('/')}/mesh/event", content=body, headers=headers)
                 except Exception:
                     pass
 
@@ -158,22 +231,20 @@ def build_app(cfg: Config) -> FastAPI:
         if not any(m.role == "system" for m in msgs):
             msgs.insert(0, ChatMessage("system", ADVISOR_SYSTEM))
 
-        # Route — but never forward more than one hop.
         target = state.router.select_model_node(model, state.local_models)
         if target.id != state.registry.me.id and not x_boddos_forwarded:
             try:
+                body, headers = state.signed(
+                    {"model": model, "messages": [m.to_dict() for m in msgs]},
+                    extra={"X-Boddos-Forwarded": "1"},
+                )
                 async with httpx.AsyncClient(timeout=180.0) as c:
-                    r = await c.post(
-                        f"{target.url}/api/chat",
-                        json={"model": model, "messages": [m.to_dict() for m in msgs]},
-                        headers={"X-Boddos-Forwarded": "1", "X-Boddos-PSK": cfg.mesh.psk},
-                    )
+                    r = await c.post(f"{target.url}/api/chat", content=body, headers=headers)
                     r.raise_for_status()
                     data = r.json()
                     data["served_by"] = target.id
                     return data
             except Exception as e:
-                # Fall through to local if the peer is unreachable.
                 reply = await state.provider.chat(model, msgs)
                 return {"reply": reply, "served_by": state.registry.me.id,
                         "note": f"peer {target.id} unreachable ({e}); served locally"}
@@ -184,7 +255,10 @@ def build_app(cfg: Config) -> FastAPI:
     # ---------------------------- agent ---------------------------
     @app.post("/api/agent/run")
     async def api_agent_run(req: dict):
-        res = await state.agent.run(req.get("command", ""), confirm=bool(req.get("confirm")))
+        command = req.get("command", "")
+        res = await state.agent.run(command, confirm=bool(req.get("confirm")))
+        state.audit.record("agent.run", {"command": command, "ok": res.ok,
+                                         "exit": res.exit_code})
         return res.to_dict()
 
     @app.post("/api/agent/fetch")
@@ -208,11 +282,17 @@ def build_app(cfg: Config) -> FastAPI:
 
     @app.post("/api/drone")
     async def api_drone(req: dict):
-        return await state.drone.command(req.get("action", ""), req.get("params"))
+        action = req.get("action", "")
+        res = await state.drone.command(action, req.get("params"))
+        state.audit.record("drone.command", {"action": action, "ok": res.get("ok")})
+        return res
 
     @app.post("/api/call")
     async def api_call(req: dict):
-        return await state.calling.place_call(req.get("number", ""), req.get("message", ""))
+        number = req.get("number", "")
+        res = await state.calling.place_call(number, req.get("message", ""))
+        state.audit.record("call.place", {"number": number, "ok": res.get("ok")})
+        return res
 
     # --------------------------- sensors --------------------------
     @app.post("/api/sensors/ingest")
@@ -229,8 +309,18 @@ def build_app(cfg: Config) -> FastAPI:
         )
         state.fusion.ingest(r)
         state.trackers.observe(r.ble, r.lat, r.lon)
-        await state.bus.publish({"type": "sensors.update", "source": r.source})
-        return {"ok": True}
+        state.last_surveillance = scan_report(r.wifi, r.ble)
+
+        events: list[dict] = [{"type": "sensors.update", "source": r.source}]
+        if not state.last_surveillance["clear"]:
+            events.append({"type": "safety.surveillance", "report": state.last_surveillance})
+        if r.lat is not None and state.geofence.zones:
+            geo = state.geofence.evaluate(r.lat, r.lon)
+            if geo["alerts"]:
+                events.append({"type": "safety.geofence", "alerts": geo["alerts"]})
+        for e in events:
+            await state.bus.publish(e)
+        return {"ok": True, "surveillance_clear": state.last_surveillance["clear"]}
 
     @app.get("/api/sensors")
     async def api_sensors():
@@ -240,17 +330,23 @@ def build_app(cfg: Config) -> FastAPI:
     @app.post("/api/safety/duress")
     async def api_duress(req: dict):
         result = state.duress.trigger(req.get("note", ""), req.get("location"))
+        state.audit.record("safety.duress", {"note": req.get("note", "")})
         await _broadcast(result["event"])
         return result
 
     @app.post("/api/safety/clear")
     async def api_duress_clear():
+        state.audit.record("safety.duress_clear", {})
         return state.duress.clear()
 
     @app.get("/api/safety/status")
     async def api_safety_status():
-        return {"duress": state.duress.snapshot(),
-                "tracker_suspects": state.trackers.suspects()}
+        return {
+            "duress": state.duress.snapshot(),
+            "tracker_suspects": state.trackers.suspects(),
+            "deadman": state.deadman.status(),
+            "surveillance": state.last_surveillance,
+        }
 
     @app.get("/api/safety/trackers")
     async def api_trackers():
@@ -263,9 +359,74 @@ def build_app(cfg: Config) -> FastAPI:
             return await state.exposure.plan(ids)
         return state.exposure.surfaces_for(ids)
 
+    @app.post("/api/safety/deadman/arm")
+    async def api_deadman_arm(req: dict):
+        res = state.deadman.arm(req.get("label", "check-in"),
+                                float(req.get("minutes", 30)),
+                                bool(req.get("recurring", False)))
+        state.audit.record("deadman.arm", res)
+        return res
+
+    @app.post("/api/safety/deadman/checkin")
+    async def api_deadman_checkin(req: dict):
+        return state.deadman.check_in(req.get("label", "check-in"))
+
+    @app.post("/api/safety/deadman/cancel")
+    async def api_deadman_cancel(req: dict):
+        return state.deadman.cancel(req.get("label", "check-in"))
+
+    @app.get("/api/safety/deadman")
+    async def api_deadman_status():
+        return {"checkins": state.deadman.status()}
+
+    @app.get("/api/safety/surveillance")
+    async def api_surveillance():
+        return state.last_surveillance
+
+    @app.post("/api/safety/breach")
+    async def api_breach(req: dict):
+        return await check_password(req.get("password", ""))
+
+    @app.get("/api/safety/geofence")
+    async def api_geofence(lat: float, lon: float):
+        return state.geofence.evaluate(lat, lon)
+
+    # -------------------------- security --------------------------
+    @app.get("/api/security/status")
+    async def api_security_status():
+        intact, checked = state.audit.verify_chain()
+        return {
+            "require_auth": state.client_auth.require,
+            "tls_enabled": cfg.security.tls_enabled,
+            "mesh_signing": True,
+            "audit": {"intact": intact, "entries": checked, "recent": state.audit.tail(20)},
+            "vault_unlocked": state.vault.unlocked,
+        }
+
+    @app.get("/api/security/vault")
+    async def api_vault_keys():
+        if not state.vault.unlocked:
+            return {"unlocked": False, "keys": []}
+        try:
+            return {"unlocked": True, "keys": sorted(state.vault.load().keys())}
+        except Exception as e:
+            return {"unlocked": True, "error": str(e), "keys": []}
+
+    @app.post("/api/security/vault/set")
+    async def api_vault_set(req: dict):
+        if not state.vault.unlocked:
+            return {"ok": False, "error": "vault locked (set BODDOS_VAULT_PASSPHRASE)"}
+        state.vault.set(req.get("name", ""), req.get("value"))
+        state.audit.record("vault.set", {"name": req.get("name", "")})
+        return {"ok": True}
+
     # --------------------------- websocket ------------------------
     @app.websocket("/ws")
     async def ws(websocket: WebSocket):
+        token = websocket.query_params.get("token")
+        if state.client_auth.require and not state.client_auth.check(None, token):
+            await websocket.close(code=1008)
+            return
         await websocket.accept()
         q = state.bus.subscribe()
         try:
@@ -282,7 +443,7 @@ def build_app(cfg: Config) -> FastAPI:
     @app.get("/health")
     async def health():
         return {"ok": True, "node": state.registry.me.id, "role": cfg.node.role,
-                "models": state.local_models}
+                "models": state.local_models, "auth_required": state.client_auth.require}
 
     @app.get("/")
     async def index():

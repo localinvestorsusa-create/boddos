@@ -73,10 +73,39 @@ class TrustedContact(BaseModel):
     target: str = ""
 
 
+class GeoZone(BaseModel):
+    name: str
+    lat: float
+    lon: float
+    radius_m: float = 150.0
+    kind: Literal["safe", "danger"] = "safe"
+
+
 class SafetyCfg(BaseModel):
     trusted_contacts: list[TrustedContact] = Field(default_factory=list)
     broadcast: bool = True
     tracker_follow_threshold: int = 3
+    geofences: list[GeoZone] = Field(default_factory=list)
+
+
+class SecurityCfg(BaseModel):
+    # Client (phone/UI) bearer-token auth. If require_auth and no api_token is
+    # set, a token is generated at startup and printed once.
+    require_auth: bool = False
+    api_token: str = ""
+    # TLS: serve HTTPS with a self-signed cert (generated if missing).
+    tls_enabled: bool = False
+    tls_cert: str = "~/.boddos/cert.pem"
+    tls_key: str = "~/.boddos/key.pem"
+    # Rate limiting.
+    rate_per_sec: float = 5.0
+    rate_burst: float = 20.0
+    lockout_threshold: int = 8
+    lockout_seconds: float = 300.0
+    # Audit log location.
+    audit_log: str = "~/.boddos/audit.log"
+    # Encrypted vault file (unlocked via BODDOS_VAULT_PASSPHRASE).
+    vault_file: str = "~/.boddos/vault.bin"
 
 
 class Config(BaseModel):
@@ -86,6 +115,7 @@ class Config(BaseModel):
     agent: AgentCfg = Field(default_factory=AgentCfg)
     services: ServicesCfg = Field(default_factory=ServicesCfg)
     safety: SafetyCfg = Field(default_factory=SafetyCfg)
+    security: SecurityCfg = Field(default_factory=SecurityCfg)
 
     @property
     def agent_workdir(self) -> Path:
@@ -107,4 +137,6 @@ def load_config(path: str | os.PathLike) -> Config:
         cfg.node.bind_port = int(v)
     if v := os.environ.get("BODDOS_MESH_PSK"):
         cfg.mesh.psk = v
+    if v := os.environ.get("BODDOS_API_TOKEN"):
+        cfg.security.api_token = v
     return cfg

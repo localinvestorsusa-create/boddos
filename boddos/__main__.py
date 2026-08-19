@@ -29,9 +29,22 @@ def main(argv: list[str] | None = None) -> int:
     port = args.port or cfg.node.bind_port
     app = build_app(cfg)
 
-    print(f"BODDOS node '{cfg.node.id}' ({cfg.node.role}) on http://{host}:{port}")
-    print(f"Open the phone UI at http://<this-lan-ip>:{port}/")
-    uvicorn.run(app, host=host, port=port, log_level="info")
+    ssl_kw = {}
+    scheme = "http"
+    if cfg.security.tls_enabled:
+        from .security.tls import ensure_self_signed
+        cert, key = ensure_self_signed(
+            cfg.security.tls_cert, cfg.security.tls_key,
+            ips=["127.0.0.1"],
+        )
+        ssl_kw = {"ssl_certfile": str(cert), "ssl_keyfile": str(key)}
+        scheme = "https"
+
+    print(f"BODDOS node '{cfg.node.id}' ({cfg.node.role}) on {scheme}://{host}:{port}")
+    print(f"Open the phone UI at {scheme}://<this-lan-ip>:{port}/")
+    if cfg.security.require_auth:
+        print("[security] client auth required — enter your API token in the UI.")
+    uvicorn.run(app, host=host, port=port, log_level="info", **ssl_kw)
     return 0
 
 

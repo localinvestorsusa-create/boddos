@@ -25,8 +25,13 @@ don't control.
 | Environmental sensing (ESP32) | ✅ core | Wi-Fi/BLE discovery, magnetometer, mic, motion |
 | Sensor-fusion "situational awareness" | ✅ core | Real physics only — not X-ray vision |
 | Panic / duress mode + check-ins | ✅ safety | Trusted-contact alerts, location share |
+| Dead-man's switch / check-in timer | ✅ safety | Miss a check-in → auto duress alert |
 | "Am I being tracked?" detection | ✅ safety | Rogue BLE / AirTag-style follower detection |
+| Surveillance scan | ✅ safety | Evil-twin AP + camera/tracker vendor fingerprint |
+| Geofenced safe zones | ✅ safety | Alert on leaving safe / entering danger zones |
+| Password breach check | ✅ safety | k-anonymity, only a hash prefix leaves the device |
 | Your-own OSINT exposure audit | ✅ safety | What's public about *you*, so you can lock it down |
+| Hardened transport | ✅ security | Signed mesh, client auth, TLS, rate-limit, audit, vault |
 | Drone control (your drones) | 🔌 adapter | MAVLink-style stub, bring your own link |
 | Calling | 🔌 adapter | Provider stub |
 
