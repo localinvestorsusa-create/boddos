@@ -1,0 +1,73 @@
+# BODDOS node configuration.
+# Copy to boddos.yaml on each machine and edit per-node.
+
+node:
+  # Unique short id per machine, e.g. "macbook", "zbook", "hp".
+  id: "macbook"
+  name: "MacBook (primary host)"
+  # role: "host" (runs models) or "edge" (light routing / sensors / tools)
+  role: "host"
+  bind_host: "0.0.0.0"
+  bind_port: 8787
+  # Advertised URL other nodes reach this machine at (LAN IP).
+  advertise_url: "http://192.168.1.10:8787"
+
+mesh:
+  # Shared secret — every node in your mesh must use the same value.
+  # Requests between nodes must present this. Generate a long random string.
+  psk: "CHANGE-ME-to-a-long-random-shared-secret"
+  # Peer node URLs to say hello to on startup (LAN IPs).
+  peers:
+    - "http://192.168.1.11:8787"   # ZBook (failover host)
+    - "http://192.168.1.12:8787"   # HP (edge/tools)
+  heartbeat_seconds: 10
+
+models:
+  # Local model provider. Point at the Ollama instance on this machine.
+  provider: "ollama"
+  ollama_url: "http://127.0.0.1:11434"
+  # Default advisor model (must be pulled locally: `ollama pull llama3.1`).
+  default_model: "llama3.1"
+  # Capacity hint used by the mesh router to pick a host.
+  ram_gb: 32
+  has_gpu: true
+
+agent:
+  # OS agent runs tasks on THIS machine only. Off by default; opt in per node.
+  enabled: false
+  # Only these commands (by first token) may be run. Keep it tight.
+  allowed_commands: ["ls", "cat", "echo", "df", "uptime", "git", "python3"]
+  # Working directory the agent is confined to.
+  workdir: "~/boddos-agent"
+  # Require an explicit confirm flag on each run request.
+  require_confirm: true
+
+services:
+  weather:
+    enabled: true
+    # Default location for weather-aware planning (lat, lon).
+    lat: 40.7128
+    lon: -74.0060
+  translate:
+    enabled: true
+    # Uses the local model to translate any language -> English.
+    model: "llama3.1"
+  calling:
+    enabled: false
+    provider: "none"   # plug in your own provider adapter
+  drone:
+    enabled: false
+    # e.g. "udp:127.0.0.1:14550" for a MAVLink endpoint you control
+    endpoint: ""
+
+safety:
+  # People to alert in a panic/duress event. YOUR contacts, consenting.
+  trusted_contacts:
+    - name: "Alex"
+      channel: "sms"        # sms | email | webhook
+      target: "+15555550123"
+  # Broadcast an alert event on the mesh bus when duress is triggered.
+  broadcast: true
+  # Tracker detection: flag an unknown BLE device seen following you
+  # across this many distinct locations/time windows.
+  tracker_follow_threshold: 3

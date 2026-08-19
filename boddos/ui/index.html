@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0f14" />
+<link rel="manifest" href="/ui/manifest.webmanifest" />
+<title>BODDOS</title>
+<link rel="stylesheet" href="/ui/style.css" />
+</head>
+<body>
+  <header>
+    <h1>BODDOS</h1>
+    <span id="node" class="pill">…</span>
+    <button id="panic" class="panic">PANIC</button>
+  </header>
+
+  <nav id="tabs">
+    <button data-tab="advisor" class="active">Advisor</button>
+    <button data-tab="aware">Awareness</button>
+    <button data-tab="safety">Safety</button>
+    <button data-tab="tools">Tools</button>
+  </nav>
+
+  <main>
+    <section id="advisor" class="tab active">
+      <div id="chat" class="chat"></div>
+      <form id="chatForm">
+        <input id="chatInput" placeholder="Ask your advisor…" autocomplete="off" />
+        <button>Send</button>
+      </form>
+      <div class="row">
+        <select id="modelSel"><option>default</option></select>
+      </div>
+    </section>
+
+    <section id="aware" class="tab">
+      <h2>Situational awareness</h2>
+      <p class="muted">Real sensor data from your ESP32/phone. No X-ray vision — honest physics only.</p>
+      <div id="sensors" class="cards"></div>
+    </section>
+
+    <section id="safety" class="tab">
+      <h2>Safety</h2>
+      <div id="duressState" class="card"></div>
+      <h3>Possible followers</h3>
+      <div id="trackers" class="cards"><p class="muted">No suspicious trackers detected.</p></div>
+      <h3>My exposure audit</h3>
+      <form id="expForm">
+        <input id="expInput" placeholder="your email / phone / username" />
+        <button>Audit me</button>
+      </form>
+      <pre id="expOut" class="out"></pre>
+    </section>
+
+    <section id="tools" class="tab">
+      <h2>Tools</h2>
+      <div class="card">
+        <h3>Weather</h3>
+        <button id="wxBtn">Refresh</button>
+        <div id="wx" class="muted">—</div>
+      </div>
+      <div class="card">
+        <h3>Translate → English</h3>
+        <form id="trForm">
+          <input id="trInput" placeholder="text in any language" />
+          <button>Translate</button>
+        </form>
+        <div id="trOut" class="muted"></div>
+      </div>
+      <div class="card">
+        <h3>OS agent (this machine)</h3>
+        <form id="agForm">
+          <input id="agInput" placeholder="allowlisted command, e.g. uptime" />
+          <label><input type="checkbox" id="agConfirm" /> confirm</label>
+          <button>Run</button>
+        </form>
+        <pre id="agOut" class="out"></pre>
+      </div>
+    </section>
+  </main>
+
+  <script src="/ui/app.js"></script>
+</body>
+</html>
