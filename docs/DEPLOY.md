@@ -91,11 +91,15 @@ appends the code to guarded requests.
 
 ## 7. Live assistant: voice, vision, push, drone
 
-**Always-on conversation.** On the **Advisor** tab tap **Go Live** — the phone
-listens, streams the reply token-by-token, speaks it aloud, then listens again.
-"Speak replies" also voices normal typed answers. Uses on-device browser speech;
-needs a secure context (HTTPS or localhost), so enable `security.tls_enabled` or
-use the WireGuard overlay for phone access.
+**Always-on conversation + wake word.** On the **Advisor** tab tap **Hey Ori** to
+arm hands-free listening: say **"Hey Ori"** (or just **"Ori"**) and it wakes,
+answers aloud, and keeps the conversation going for follow-ups; say "stop" or
+"goodbye" to send it back to sleep. **Talk** starts a conversation immediately
+without the wake word. "Speak replies" also voices typed answers. Rename the
+assistant or change the wake phrases under `assistant:` in the config
+(`name`, `wake_words`). Uses on-device browser speech; needs a secure context
+(HTTPS or localhost), so enable `security.tls_enabled` or use the WireGuard
+overlay for phone access.
 
 **Camera vision.** Pull a multimodal model once (`ollama pull llava`). On the
 **Vision** tab, **Start** the camera and ask a question — the frame is analyzed

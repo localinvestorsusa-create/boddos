@@ -10,7 +10,7 @@
 </head>
 <body>
   <header>
-    <h1>BODDOS</h1>
+    <h1 id="brand">BODDOS</h1>
     <span id="node" class="pill">…</span>
     <button id="panic" class="panic">PANIC</button>
   </header>
@@ -26,8 +26,9 @@
   <main>
     <section id="advisor" class="tab active">
       <div class="row" style="margin-bottom:8px">
-        <button type="button" id="liveBtn" class="mic">🎙️ Go Live</button>
-        <span id="liveState" class="muted">tap to start a hands-free conversation</span>
+        <button type="button" id="wakeBtn" class="mic">😴 Hey Ori</button>
+        <button type="button" id="liveBtn" class="mic">🎙️ Talk</button>
+        <span id="liveState" class="muted">say "Hey Ori" or tap Talk</span>
       </div>
       <div id="chat" class="chat"></div>
       <form id="chatForm">

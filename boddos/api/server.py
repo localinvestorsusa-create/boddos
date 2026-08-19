@@ -36,15 +36,17 @@ from ..mesh.bus import EventBus
 
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
 
-ADVISOR_SYSTEM = (
-    "You are BODDOS, a private personal advisor and safety assistant running on "
-    "the user's own machines. Be concise, practical, and honest. You help the "
-    "user protect themselves and get things done. You do not help surveil, "
-    "deceive, or manipulate other people."
-)
+def advisor_system(name: str) -> str:
+    return (
+        f"You are {name}, a private personal advisor and safety assistant running "
+        "on the user's own machines. Be concise, practical, and honest — you are "
+        "often spoken to and answered aloud, so keep replies natural and to the "
+        "point. You help the user protect themselves and get things done. You do "
+        "not help surveil, deceive, or manipulate other people."
+    )
 
 # Paths reachable without a client token (so the UI can load and prompt for one).
-_AUTH_EXEMPT_PREFIXES = ("/health", "/ui", "/manifest", "/sw.js")
+_AUTH_EXEMPT_PREFIXES = ("/health", "/ui", "/manifest", "/sw.js", "/api/ui-config")
 
 
 class NodeState:
@@ -252,7 +254,7 @@ def build_app(cfg: Config) -> FastAPI:
         else:
             msgs = [ChatMessage("user", req.get("prompt", ""))]
         if not any(m.role == "system" for m in msgs):
-            msgs.insert(0, ChatMessage("system", ADVISOR_SYSTEM))
+            msgs.insert(0, ChatMessage("system", advisor_system(cfg.assistant.name)))
 
         target = state.router.select_model_node(model, state.local_models)
         if target.id != state.registry.me.id and not x_boddos_forwarded:
@@ -281,7 +283,7 @@ def build_app(cfg: Config) -> FastAPI:
         else:
             msgs = [ChatMessage("user", req.get("prompt", ""))]
         if not any(m.role == "system" for m in msgs):
-            msgs.insert(0, ChatMessage("system", ADVISOR_SYSTEM))
+            msgs.insert(0, ChatMessage("system", advisor_system(cfg.assistant.name)))
         return msgs
 
     @app.post("/api/chat/stream")
@@ -612,6 +614,16 @@ def build_app(cfg: Config) -> FastAPI:
     async def health():
         return {"ok": True, "node": state.registry.me.id, "role": cfg.node.role,
                 "models": state.local_models, "auth_required": state.client_auth.require}
+
+    @app.get("/api/ui-config")
+    async def ui_config():
+        return {
+            "assistant_name": cfg.assistant.name,
+            "wake_words": [w.lower() for w in cfg.assistant.wake_words],
+            "greeting": cfg.assistant.greeting,
+            "vision_model": cfg.models.vision_model,
+            "push_enabled": bool(state.push and state.push.enabled),
+        }
 
     @app.get("/")
     async def index():

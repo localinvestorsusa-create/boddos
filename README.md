@@ -19,7 +19,7 @@ don't control.
 |------|--------|-------|
 | Distributed mesh across your machines | ✅ core | Nodes discover each other, share load |
 | Local LLM advisor ("Assistant") | ✅ core | Ollama-backed, any local model, pluggable |
-| Always-on live conversation | ✅ core | Continuous listen → stream → speak, hands-free |
+| Always-on live conversation | ✅ core | "Hey Ori" wake word → listen → stream → speak |
 | Streaming replies + model pulling | ✅ core | Token-by-token SSE; pull models from the UI |
 | Camera vision (phone / glasses / external) | ✅ core | Local multimodal model; add cameras by URL |
 | Lock-screen alerts (Web Push) | ✅ safety | Duress reaches the phone even when closed |
@@ -78,5 +78,6 @@ python -m boddos --config config/boddos.yaml
 
 Then open `http://<this-machine-ip>:8787/` on your phone (same network).
 
-See [`docs/DEPLOY.md`](docs/DEPLOY.md) for the full 3-machine + ESP32 setup and
+See [`docs/USAGE.md`](docs/USAGE.md) for how to use Ori across all your devices,
+[`docs/DEPLOY.md`](docs/DEPLOY.md) for the full 3-machine + ESP32 setup, and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the pieces fit.

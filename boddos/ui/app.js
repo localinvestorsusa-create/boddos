@@ -39,6 +39,14 @@ document.querySelectorAll("#tabs button").forEach((b) => {
 // ---- health + models ----
 async function boot() {
   try {
+    const cfg = await api("/api/ui-config");
+    if (cfg && cfg.assistant_name) {
+      Voice.configure(cfg);
+      $("#brand").textContent = cfg.assistant_name.toUpperCase();
+      document.title = cfg.assistant_name;
+    }
+  } catch (e) {}
+  try {
     const h = await api("/health");
     $("#node").textContent = `${h.node} · ${h.role}`;
     const m = await api("/api/models");
@@ -111,43 +119,111 @@ function speakText(text) {
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(u);
 }
+function afterSpeaking(cb) {
+  const wait = () => {
+    if (window.speechSynthesis && window.speechSynthesis.speaking) return setTimeout(wait, 250);
+    cb();
+  };
+  wait();
+}
 
-// ---- Live conversation mode: continuous listen -> stream -> speak ----
-let liveOn = false, liveRec = null;
-function setLive(on) {
-  liveOn = on;
-  $("#liveBtn").classList.toggle("rec", on);
-  $("#liveBtn").textContent = on ? "⏹️ Stop" : "🎙️ Go Live";
-  $("#liveState").textContent = on ? "listening…" : "tap to start a hands-free conversation";
-  if (on) startLive(); else if (liveRec) liveRec.stop();
-}
-function startLive() {
-  if (!SR) { alert("Speech recognition not supported here."); setLive(false); return; }
-  liveRec = new SR();
-  liveRec.lang = "";
-  liveRec.continuous = false;
-  liveRec.interimResults = false;
-  liveRec.onresult = async (e) => {
-    const text = e.results[0][0].transcript.trim();
+// ---- Unified voice controller: wake-word + conversation ----
+// States: "off" (not listening), "wake" (waiting for "Hey Ori"), "active"
+// (in a conversation). One recognizer, restarted on each utterance.
+const Voice = {
+  name: "Ori",
+  wakeWords: ["ori", "hey ori"],
+  greeting: "Yes?",
+  mode: "off",
+  rec: null,
+  activeUntil: 0,          // stay in conversation for a short window after each turn
+
+  configure(cfg) {
+    if (cfg.assistant_name) this.name = cfg.assistant_name;
+    if (cfg.wake_words && cfg.wake_words.length) this.wakeWords = cfg.wake_words;
+    if (cfg.greeting) this.greeting = cfg.greeting;
+    $("#wakeBtn").textContent = `😴 Hey ${this.name}`;
+    $("#liveState").textContent = `say "Hey ${this.name}" or tap Talk`;
+  },
+
+  wakeRegex() {
+    const alts = this.wakeWords.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+    return new RegExp(`\\b(?:${alts})\\b[\\s,]*`, "i");
+  },
+
+  setBtns() {
+    $("#wakeBtn").classList.toggle("rec", this.mode !== "off");
+    $("#liveBtn").classList.toggle("rec", this.mode === "active");
+  },
+
+  status(t) { $("#liveState").textContent = t; },
+
+  start(mode) {
+    if (!SR) { alert("Speech recognition isn't supported in this browser."); return; }
+    this.mode = mode;
+    this.setBtns();
+    this._listen();
+  },
+
+  stop() {
+    this.mode = "off";
+    this.setBtns();
+    this.status(`say "Hey ${this.name}" or tap Talk`);
+    if (this.rec) { try { this.rec.onend = null; this.rec.stop(); } catch (e) {} }
+  },
+
+  _listen() {
+    if (this.mode === "off") return;
+    this.rec = new SR();
+    this.rec.lang = "";
+    this.rec.continuous = false;
+    this.rec.interimResults = false;
+    this.status(this.mode === "active" ? "listening…" : `waiting for "Hey ${this.name}"…`);
+    this.rec.onresult = (e) => this._onResult(e.results[0][0].transcript.trim());
+    this.rec.onerror = () => {};
+    this.rec.onend = () => afterSpeaking(() => this._listen());
+    try { this.rec.start(); } catch (e) {}
+  },
+
+  async _onResult(text) {
     if (!text) return;
-    $("#liveState").textContent = "thinking…";
-    liveRec.stop();
+    const re = this.wakeRegex();
+    if (this.mode === "wake") {
+      if (!re.test(text)) return;                 // ignore chatter until wake word
+      const cmd = text.replace(re, "").trim();    // strip "Hey Ori"
+      this.mode = "active"; this.setBtns();
+      if (cmd) { await this._turn(cmd); }
+      else { speakText(this.greeting); this.status("listening…"); }
+      return;
+    }
+    if (this.mode === "active") {
+      const clean = text.replace(re, "").trim();
+      if (/\b(stop|goodbye|that'?s all|never ?mind|dismiss)\b/i.test(clean) && clean.split(" ").length <= 3) {
+        speakText("Okay.");
+        // Drop back to wake-word listening if it was on, else off.
+        this.mode = $("#wakeBtn").classList.contains("rec") ? "wake" : "off";
+        this.setBtns();
+        return;
+      }
+      await this._turn(clean || text);
+    }
+  },
+
+  async _turn(text) {
+    if (this.rec) { try { this.rec.onend = null; this.rec.stop(); } catch (e) {} }
+    this.status("thinking…");
     await sendMessage(text, { speak: true });
-  };
-  liveRec.onend = () => {
-    // Resume listening after the assistant finishes speaking.
-    if (!liveOn) return;
-    const wait = () => {
-      if (window.speechSynthesis && window.speechSynthesis.speaking) return setTimeout(wait, 300);
-      $("#liveState").textContent = "listening…";
-      try { liveRec.start(); } catch (e) {}
-    };
-    wait();
-  };
-  liveRec.onerror = () => {};
-  try { liveRec.start(); } catch (e) {}
-}
-$("#liveBtn").onclick = () => setLive(!liveOn);
+    // Resume listening (conversation stays active for follow-ups).
+    if (this.mode !== "off") this._listen();
+  },
+};
+
+// Buttons
+$("#wakeBtn").onclick = () => { if (Voice.mode === "off") Voice.start("wake"); else Voice.stop(); };
+$("#liveBtn").onclick = () => {
+  if (Voice.mode === "active") { Voice.mode = "wake"; Voice.setBtns(); Voice.status(`waiting for "Hey ${Voice.name}"…`); }
+  else Voice.start("active");
+};
 
 // ---- pull a model ----
 $("#pullForm").onsubmit = async (e) => {
@@ -336,6 +412,9 @@ $("#agForm").onsubmit = async (e) => {
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 function listen(btn, targetInput, opts = {}) {
   if (!SR) { alert("Speech recognition not supported in this browser."); return; }
+  // Pause the wake/conversation listener so two recognizers don't collide.
+  const resume = Voice.mode !== "off" ? Voice.mode : null;
+  if (resume) Voice.stop();
   const rec = new SR();
   rec.lang = opts.lang || "";           // "" lets the browser auto-detect
   rec.interimResults = false;
@@ -346,7 +425,7 @@ function listen(btn, targetInput, opts = {}) {
     if (opts.autosubmit && targetInput.form) targetInput.form.requestSubmit();
   };
   rec.onerror = () => {};
-  rec.onend = () => btn.classList.remove("rec");
+  rec.onend = () => { btn.classList.remove("rec"); if (resume) Voice.start(resume); };
   rec.start();
 }
 if (SR) {

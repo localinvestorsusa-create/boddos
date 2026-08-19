@@ -141,8 +141,17 @@ class SecurityCfg(BaseModel):
     totp_secret: str = ""   # base32; provision via `python -m boddos.security.totp`
 
 
+class AssistantCfg(BaseModel):
+    # The assistant's spoken name and wake phrases (lowercase).
+    name: str = "Ori"
+    wake_words: list[str] = Field(default_factory=lambda: ["ori", "hey ori"])
+    # Voice persona for text-to-speech greetings.
+    greeting: str = "Yes?"
+
+
 class Config(BaseModel):
     node: NodeCfg
+    assistant: AssistantCfg = Field(default_factory=AssistantCfg)
     mesh: MeshCfg = Field(default_factory=MeshCfg)
     models: ModelsCfg = Field(default_factory=ModelsCfg)
     agent: AgentCfg = Field(default_factory=AgentCfg)

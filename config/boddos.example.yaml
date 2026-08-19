@@ -12,6 +12,12 @@ node:
   # Advertised URL other nodes reach this machine at (LAN IP).
   advertise_url: "http://192.168.1.10:8787"
 
+assistant:
+  # What you call your assistant, and the wake phrases that activate it hands-free.
+  name: "Ori"
+  wake_words: ["ori", "hey ori"]
+  greeting: "Yes?"
+
 mesh:
   # Shared secret — every node in your mesh must use the same value.
   # Requests between nodes must present this. Generate a long random string.

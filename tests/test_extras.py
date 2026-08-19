@@ -77,3 +77,28 @@ def test_models_pull_streams(client):
 def test_push_endpoints_when_disabled(client):
     assert client.get("/api/push/publickey").json()["enabled"] is False
     assert client.post("/api/push/subscribe", json={"subscription": {}}).json()["ok"] is False
+
+
+def test_ui_config_exposes_assistant(client):
+    r = client.get("/api/ui-config").json()
+    assert r["assistant_name"] == "Ori"
+    assert "hey ori" in r["wake_words"]
+
+
+def test_ui_config_reachable_without_token(tmp_path):
+    cfg = Config(node=NodeCfg(id="a", role="host"))
+    cfg.security.require_auth = True
+    cfg.security.api_token = "tok"
+    cfg.security.audit_log = str(tmp_path / "a.log")
+    with TestClient(build_app(cfg)) as c:
+        # ui-config stays open so branding/wake-words load before login.
+        assert c.get("/api/ui-config").status_code == 200
+        assert c.get("/api/models").status_code == 401
+
+
+def test_custom_assistant_name():
+    cfg = Config(node=NodeCfg(id="a"))
+    cfg.assistant.name = "Jarvis"
+    cfg.assistant.wake_words = ["jarvis", "hey jarvis"]
+    with TestClient(build_app(cfg)) as c:
+        assert c.get("/api/ui-config").json()["assistant_name"] == "Jarvis"
