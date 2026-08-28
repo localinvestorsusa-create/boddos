@@ -70,6 +70,81 @@ export async function analyzeImage(imageB64: string, prompt: string): Promise<Vi
   return res.json();
 }
 
+export interface ModelResult {
+  ok: boolean;
+  error?: string;
+  stl_b64?: string;
+  image_b64?: string;
+  facets: number;
+  log?: string;
+}
+
+export async function buildModel(scad: string): Promise<ModelResult> {
+  const res = await fetch('/api/ogun/model', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scad }),
+  });
+  return res.json();
+}
+
+export interface CombustionResult {
+  ok: boolean;
+  error?: string;
+  flame_temperature_k?: number;
+  products: Record<string, number>;
+  warnings: string[];
+}
+
+export async function checkCombustion(
+  mixture: string,
+  initialTempK = 300,
+  pressureAtm = 1,
+): Promise<CombustionResult> {
+  const res = await fetch('/api/ogun/combustion', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mixture, initial_temp_k: initialTempK, pressure_atm: pressureAtm }),
+  });
+  return res.json();
+}
+
+export interface CircuitComponent {
+  type: 'R' | 'C' | 'L';
+  a: string;
+  b: string;
+  value: number;
+}
+
+export interface CircuitResult {
+  ok: boolean;
+  error?: string;
+  netlist?: string;
+  time_s: number[];
+  traces: Record<string, number[]>;
+}
+
+export async function simulateCircuit(
+  components: CircuitComponent[],
+  volts: number,
+  traceNodes: string[],
+  stepUs = 1,
+  endMs = 5,
+): Promise<CircuitResult> {
+  const res = await fetch('/api/ogun/circuit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      components,
+      source: { node_pos: 'in', node_neg: '0', volts },
+      trace_nodes: traceNodes,
+      step_us: stepUs,
+      end_ms: endMs,
+    }),
+  });
+  return res.json();
+}
+
 /**
  * Streams a reply from /api/chat/stream (server-sent events) and reports
  * each token to onToken as it arrives. Resolves with the full reply text.

@@ -59,6 +59,18 @@ screen:
   # Falls back to models.vision_model when blank.
   vision_model: ""
 
+ogun:
+  # Ogun 3D's building tools: OpenSCAD modeling, Cantera combustion checks,
+  # ngspice circuit simulation. On by default — pure geometry/chemistry/
+  # circuit compute, not OS/file access, so it doesn't need the same
+  # confirm-gating as agent/screen. Needs `pip install 'boddos[ogun]'`
+  # plus `apt install openscad xvfb ngspice`.
+  enabled: true
+  workdir: "~/.boddos/ogun"
+  max_source_chars: 20000
+  render_timeout_s: 25.0
+  chemistry_mechanism: "gri30.yaml"
+
 services:
   weather:
     enabled: true

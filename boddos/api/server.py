@@ -22,6 +22,7 @@ from ..config import Config
 from ..models import OllamaProvider
 from ..models.base import ChatMessage
 from ..agent import OSAgent, ScreenAgent, fetch_url
+from ..ogun import CadStudio, ChemLab, CircuitLab
 from ..services import (
     get_forecast, translate_to_english, DroneAdapter, CallingAdapter, geocode, route, directions,
 )
@@ -68,6 +69,9 @@ class NodeState:
         self.provider = OllamaProvider(cfg.models.ollama_url)
         self.agent = OSAgent(cfg.agent)
         self.screen = ScreenAgent(cfg.screen)
+        self.cad = CadStudio(cfg.ogun)
+        self.chem = ChemLab(cfg.ogun)
+        self.circuits = CircuitLab(cfg.ogun)
         self.drone = DroneAdapter(cfg.services.drone)
         self.calling = CallingAdapter(cfg.services.calling)
         self.notifier = Notifier(cfg.services.notify)
@@ -443,6 +447,37 @@ def build_app(cfg: Config) -> FastAPI:
         )
         state.audit.record("esu.directions", {"ok": result.get("ok"), "destination": destination})
         return result
+
+    # -------------------------- ogun 3d -----------------------------
+    @app.post("/api/ogun/model")
+    async def api_ogun_model(req: dict):
+        scad = req.get("scad", "")
+        res = await state.cad.build(scad)
+        state.audit.record("ogun.model", {"ok": res.ok, "facets": res.facets, "chars": len(scad)})
+        return res.to_dict()
+
+    @app.post("/api/ogun/combustion")
+    async def api_ogun_combustion(req: dict):
+        mixture = req.get("mixture", "")
+        res = state.chem.combustion(
+            mixture,
+            float(req.get("initial_temp_k", 300.0)),
+            float(req.get("pressure_atm", 1.0)),
+        )
+        state.audit.record("ogun.combustion", {"ok": res.ok, "mixture": mixture})
+        return res.to_dict()
+
+    @app.post("/api/ogun/circuit")
+    async def api_ogun_circuit(req: dict):
+        res = await state.circuits.simulate(
+            req.get("components", []),
+            req.get("source", {}),
+            req.get("trace_nodes", []),
+            float(req.get("step_us", 1.0)),
+            float(req.get("end_ms", 5.0)),
+        )
+        state.audit.record("ogun.circuit", {"ok": res.ok, "components": len(req.get("components", []))})
+        return res.to_dict()
 
     @app.post("/api/drone")
     async def api_drone(req: dict):

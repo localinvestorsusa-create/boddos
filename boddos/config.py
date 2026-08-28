@@ -41,6 +41,19 @@ class AgentCfg(BaseModel):
     require_confirm: bool = True
 
 
+class OgunCfg(BaseModel):
+    # Ogun 3D's building tools: OpenSCAD modeling, Cantera combustion
+    # checks, ngspice circuit simulation. Unlike screen/agent control these
+    # don't touch the user's OS or files outside their own workdir, so
+    # they're on by default — pure geometry/chemistry/circuit compute in a
+    # constrained DSL, not arbitrary code execution.
+    enabled: bool = True
+    workdir: str = "~/.boddos/ogun"
+    max_source_chars: int = 20000
+    render_timeout_s: float = 25.0
+    chemistry_mechanism: str = "gri30.yaml"
+
+
 class ScreenCfg(BaseModel):
     # Screenshot + click/type control of THIS machine's own display.
     # Off by default; needs a real display (no-op on a headless node).
@@ -174,6 +187,7 @@ class Config(BaseModel):
     models: ModelsCfg = Field(default_factory=ModelsCfg)
     agent: AgentCfg = Field(default_factory=AgentCfg)
     screen: ScreenCfg = Field(default_factory=ScreenCfg)
+    ogun: OgunCfg = Field(default_factory=OgunCfg)
     services: ServicesCfg = Field(default_factory=ServicesCfg)
     safety: SafetyCfg = Field(default_factory=SafetyCfg)
     security: SecurityCfg = Field(default_factory=SecurityCfg)

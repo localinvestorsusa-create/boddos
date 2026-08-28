@@ -105,12 +105,26 @@ See [`docs/USAGE.md`](docs/USAGE.md) for how to use Ori across all your devices,
 `frontend/` is a from-scratch React + Three.js UI: a persistent, draggable
 geometric globe (binary strip above its equator, two odu-style strips below)
 that vibrates with your mic while you talk and with the assistant's reply
-while it speaks, plus three sections — **Orunmila** (chat, wired live to
-`/api/chat/stream`), **Esu Pathfinder**, and **Ogun 3D** (the latter two are
-tool-map placeholders, not yet wired up). It talks to the same backend above
-over `/api`, proxied in dev.
+while it speaks, plus three sections wired to real backend tools:
+
+- **Orunmila** — chat (`/api/chat/stream`), continuous "hey ori" wake-word
+  voice loop, and a screen-control panel (screenshot → local vision model →
+  click, gated behind `screen.enabled` + a per-click confirm).
+- **Esu Pathfinder** — turn-by-turn directions on a Leaflet/OSM map
+  (Nominatim + OSRM) and a camera "lookout" that describes hazards via the
+  local vision model.
+- **Ogun 3D** — describe a part and get real OpenSCAD + a rendered STL
+  preview; check a combustion mixture with Cantera; sketch an RC/RL/RLC
+  circuit and simulate it with ngspice.
+
+It talks to the same backend above over `/api`, proxied in dev.
 
 ```bash
+# system deps for screen control + Ogun 3D (optional — each section
+# degrades to a clear "disabled"/"unavailable" message without these)
+apt install openscad xvfb ngspice libngspice0-dev
+pip install -e ".[screen,ogun]"
+
 # terminal 1 — backend
 python -m boddos --config config/boddos.yaml --port 8000
 

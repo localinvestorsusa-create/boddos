@@ -1,5 +1,9 @@
 import { OgunGlyph } from './Glyph';
+import CadStudio from './CadStudio';
+import ChemLabPanel from './ChemLabPanel';
+import CircuitLabPanel from './CircuitLabPanel';
 import './sections.css';
+import './ogun.css';
 
 export default function Ogun() {
   return (
@@ -11,42 +15,27 @@ export default function Ogun() {
         </div>
         <h1>Ogun 3D</h1>
         <p className="section-dek">
-          Procedural modeling, fabrication, and the material sciences — split between Dead Matter
-          (mechanical, electronic, built things) and Living Matter (biological systems).
+          Describe a part and Ogun writes the OpenSCAD to build it. Describe a mixture and Cantera
+          checks how it burns. Sketch a circuit and ngspice tells you how it behaves.
         </p>
       </header>
 
+      <CadStudio />
+      <ChemLabPanel />
+      <CircuitLabPanel />
+
       <div className="tool-groups">
         <div className="tool-group">
-          <h3>Dead Matter — modeling &amp; fabrication</h3>
+          <h3>Still on the roadmap</h3>
           <ul>
-            <li><strong>Blender (bpy)</strong> — headless procedural mesh generation from a description</li>
-            <li><strong>FreeCAD</strong> — parametric CAD for mechanical/electronic parts</li>
-            <li><strong>KiCad + ngspice</strong> — circuit design and simulation</li>
-            <li><strong>PyBullet</strong> — physical-lab simulation before anything is printed</li>
-            <li><strong>OctoPrint/Klipper, grblHAL</strong> — 3D printer, CNC and laser cutter control</li>
-          </ul>
-        </div>
-        <div className="tool-group">
-          <h3>Chemistry &amp; safety</h3>
-          <ul>
-            <li><strong>RDKit</strong> — reaction and mixture-safety checks</li>
-            <li><strong>PubChem</strong> — hazard/reactivity reference data</li>
-          </ul>
-        </div>
-        <div className="tool-group">
-          <h3>Living Matter (Obatala)</h3>
-          <ul>
-            <li><strong>Biopython, ESMFold</strong> — biological structure and system study</li>
-            <li><strong>GBIF / iNaturalist</strong> — species and taxonomy reference data</li>
+            <li><strong>FreeCAD</strong> — parametric CAD with real tolerances, for parts OpenSCAD's CSG language can't express cleanly</li>
+            <li><strong>CalculiX / OpenFOAM</strong> — structural FEA and CFD, once basic modeling is solid</li>
+            <li><strong>Aerospace stack</strong> — OpenVSP, XFLR5, PX4/ArduPilot SITL, RocketPy for the airplane/drone/rocket cases</li>
+            <li><strong>Material sourcing</strong> — Materials Project data, plus a search agent for real supplier listings</li>
+            <li><strong>Living Matter (Obatala)</strong> — Biopython, OpenMM, OpenSim for human/animal/plant systems</li>
           </ul>
         </div>
       </div>
-
-      <p className="status-note">
-        Not wired up yet — this is the planned tool set. The next slice after the shell and Orunmila's
-        chat loop is the Blender scripting round-trip: describe a part, get a mesh back.
-      </p>
     </div>
   );
 }
