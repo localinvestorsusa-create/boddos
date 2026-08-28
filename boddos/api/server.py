@@ -26,6 +26,7 @@ from ..agent import OSAgent, ScreenAgent, fetch_url
 from ..ogun import CadStudio, ChemLab, CircuitLab, StructuresLab, AerospaceLab, BioLab, MaterialsLab
 from ..services import (
     get_forecast, translate_to_english, DroneAdapter, CallingAdapter, geocode, route, directions,
+    DeviceFinder,
 )
 from ..services.notify import Notifier
 from ..services.push import PushManager
@@ -71,6 +72,7 @@ class NodeState:
         self.registry = MeshRegistry(me, ttl=ttl)
         self.router = Router(self.registry)
         self.provider = OllamaProvider(cfg.models.ollama_url)
+        self.finder = DeviceFinder()
         self.agent = OSAgent(cfg.agent)
         self.screen = ScreenAgent(cfg.screen)
         self.cad = CadStudio(cfg.ogun)
@@ -177,6 +179,7 @@ def build_app(cfg: Config) -> FastAPI:
                 t.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await t
+            await state.finder.stop()
 
     app = FastAPI(title="BODDOS", version="0.1.0", lifespan=lifespan)
     app.state.node = state
@@ -459,6 +462,36 @@ def build_app(cfg: Config) -> FastAPI:
         )
         state.audit.record("esu.directions", {"ok": result.get("ok"), "destination": destination})
         return result
+
+    # ------------------------- device finder -------------------------
+    @app.post("/api/finder/scan")
+    async def api_finder_scan(req: dict | None = None):
+        req = req or {}
+        if not cfg.services.finder.enabled:
+            return {"ok": False, "error": "finder disabled", "devices": []}
+        res = await state.finder.scan(float(req.get("seconds", 4.0)))
+        state.audit.record("finder.scan", {"ok": res.ok, "found": len(res.devices)})
+        return res.to_dict()
+
+    @app.post("/api/finder/track")
+    async def api_finder_track(req: dict):
+        if not cfg.services.finder.enabled:
+            return {"ok": False, "error": "finder disabled"}
+        address = req.get("address", "").strip()
+        if not address:
+            return {"ok": False, "error": "address required — pick one from /api/finder/scan first"}
+        res = await state.finder.start(address, req.get("name", ""))
+        state.audit.record("finder.track", {"ok": res.ok, "address": address})
+        return res.to_dict()
+
+    @app.post("/api/finder/stop")
+    async def api_finder_stop():
+        res = await state.finder.stop()
+        return res.to_dict()
+
+    @app.get("/api/finder/status")
+    async def api_finder_status():
+        return state.finder.status().to_dict()
 
     # -------------------------- ogun 3d -----------------------------
     @app.post("/api/ogun/model")

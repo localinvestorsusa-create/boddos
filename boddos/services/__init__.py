@@ -6,6 +6,7 @@ from .calling import CallingAdapter
 from .notify import Notifier
 from .push import PushManager
 from .routing import geocode, route, directions
+from .finder import DeviceFinder
 
 __all__ = [
     "get_forecast",
@@ -17,4 +18,5 @@ __all__ = [
     "geocode",
     "route",
     "directions",
+    "DeviceFinder",
 ]

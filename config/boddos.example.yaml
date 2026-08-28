@@ -94,6 +94,11 @@ services:
     enabled: true
     nominatim_url: "https://nominatim.openstreetmap.org"
     osrm_url: "https://router.project-osrm.org"
+  finder:
+    # Lost-device finder: BLE proximity ("getting warmer/colder") for a
+    # device you already own and paired — not a lookup tool for anyone
+    # else's. Needs a BLE radio + `pip install 'boddos[finder]'`.
+    enabled: true
   drone:
     enabled: false
     # e.g. "udp:127.0.0.1:14550" for a MAVLink endpoint you control

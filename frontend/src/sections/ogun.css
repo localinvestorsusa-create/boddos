@@ -271,3 +271,32 @@
 .mesh-node-url { display: block; font-family: 'IBM Plex Mono', monospace; font-size: 0.74rem; color: var(--ink-dim); margin-top: 0.15rem; }
 .mesh-node-specs { display: flex; flex-direction: column; align-items: flex-end; gap: 0.15rem; font-size: 0.78rem; color: var(--ink-dim); }
 .mesh-node-list li.empty { color: var(--ink-dim); text-align: center; padding: 0.8rem; font-size: 0.85rem; }
+
+/* ---- device finder ---- */
+.finder-scan-btn, .finder-track-btn, .finder-stop-btn {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  font-weight: 600;
+  font-size: 0.82rem;
+  font-family: 'Sora', sans-serif;
+}
+.finder-scan-btn:disabled { opacity: 0.5; }
+.finder-track-btn { background: var(--surface); border: 1px solid var(--line-strong); color: var(--ink); padding: 0.3rem 0.7rem; font-size: 0.76rem; }
+.finder-stop-btn { background: var(--surface-2); border: 1px solid var(--line-strong); color: var(--ink); margin-top: 1rem; }
+
+.finder-tracking { text-align: center; padding: 0.5rem 0 0.3rem; }
+.finder-target { margin-bottom: 1rem; }
+.finder-target strong { display: block; font-size: 1.1rem; }
+.finder-target span { font-family: 'IBM Plex Mono', monospace; font-size: 0.76rem; color: var(--ink-dim); }
+
+.finder-meter { display: flex; justify-content: center; gap: 0.4rem; margin-bottom: 0.9rem; }
+.finder-meter span {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--surface-2); border: 1px solid var(--line-strong);
+}
+.finder-meter span.lit { background: var(--accent); border-color: var(--accent); }
+
+.finder-readout { font-size: 1rem; margin: 0; text-transform: capitalize; }

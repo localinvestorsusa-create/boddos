@@ -4,6 +4,7 @@ import { speak, type MicLevel, type PulseLevel } from '../orun/audio';
 import { VoiceController, speechRecognitionSupported, type VoiceMode } from '../orun/voice';
 import ScreenControl from './ScreenControl';
 import MeshPanel from './MeshPanel';
+import FinderPanel from './FinderPanel';
 import './sections.css';
 
 interface OrunmilaProps {
@@ -159,6 +160,7 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
       </div>
 
       <MeshPanel />
+      <FinderPanel />
       <ScreenControl />
     </div>
   );

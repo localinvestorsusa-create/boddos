@@ -57,6 +57,58 @@ export async function fetchMeshNodes(): Promise<MeshNode[]> {
   return data.nodes;
 }
 
+export interface FoundDevice {
+  address: string;
+  name: string;
+  rssi: number;
+}
+
+export interface FinderScanResult {
+  ok: boolean;
+  error?: string;
+  devices: FoundDevice[];
+}
+
+export async function scanForDevices(seconds = 4): Promise<FinderScanResult> {
+  const res = await fetch('/api/finder/scan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ seconds }),
+  });
+  return res.json();
+}
+
+export interface FinderStatus {
+  ok: boolean;
+  error?: string;
+  tracking: boolean;
+  address: string;
+  name: string;
+  rssi: number | null;
+  proximity: string;
+  trend: string;
+  last_seen_s_ago: number | null;
+}
+
+export async function trackDevice(address: string, name: string): Promise<FinderStatus> {
+  const res = await fetch('/api/finder/track', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address, name }),
+  });
+  return res.json();
+}
+
+export async function stopTrackingDevice(): Promise<FinderStatus> {
+  const res = await fetch('/api/finder/stop', { method: 'POST' });
+  return res.json();
+}
+
+export async function fetchFinderStatus(): Promise<FinderStatus> {
+  const res = await fetch('/api/finder/status');
+  return res.json();
+}
+
 export interface RouteStep {
   instruction: string;
   distance_m: number;

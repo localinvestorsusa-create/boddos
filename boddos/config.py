@@ -90,6 +90,13 @@ class RoutingCfg(BaseModel):
     osrm_url: str = "https://router.project-osrm.org"
 
 
+class FinderCfg(BaseModel):
+    # Lost-device finder — BLE proximity for something you already own.
+    # Read-only passive scanning, same tier as camera/sensor reads, so on
+    # by default; needs a BLE radio (pip install 'boddos[finder]').
+    enabled: bool = True
+
+
 class DroneCfg(BaseModel):
     enabled: bool = False
     endpoint: str = ""
@@ -126,6 +133,7 @@ class ServicesCfg(BaseModel):
     translate: TranslateCfg = Field(default_factory=TranslateCfg)
     calling: CallingCfg = Field(default_factory=CallingCfg)
     routing: RoutingCfg = Field(default_factory=RoutingCfg)
+    finder: FinderCfg = Field(default_factory=FinderCfg)
     drone: DroneCfg = Field(default_factory=DroneCfg)
     notify: NotifyCfg = Field(default_factory=NotifyCfg)
     push: PushCfg = Field(default_factory=PushCfg)

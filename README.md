@@ -138,9 +138,11 @@ while it speaks, plus three sections wired to real backend tools:
 
 - **Orunmila** — chat (`/api/chat/stream`), continuous "hey ori" wake-word
   voice loop, a screen-control panel (screenshot → local vision model →
-  click, gated behind `screen.enabled` + a per-click confirm), and a mesh
+  click, gated behind `screen.enabled` + a per-click confirm), a mesh
   panel showing this machine's auto-detected hardware plus every peer node
-  and its specs, live.
+  and its specs live, and a **device finder** — scan for nearby Bluetooth
+  devices you own (earbuds, a tag) and track one with a "getting warmer/
+  colder" proximity readout from its real BLE signal strength.
 - **Esu Pathfinder** — turn-by-turn directions on a Leaflet/OSM map
   (Nominatim + OSRM) and a camera "lookout" that describes hazards via the
   local vision model.
@@ -155,10 +157,10 @@ while it speaks, plus three sections wired to real backend tools:
 It talks to the same backend above over `/api`, proxied in dev.
 
 ```bash
-# system deps for screen control + Ogun 3D (optional — each section
-# degrades to a clear "disabled"/"unavailable" message without these)
-apt install openscad xvfb ngspice libngspice0-dev calculix-ccx
-pip install -e ".[screen,ogun]"
+# system deps for screen control, Ogun 3D, and the device finder (optional —
+# each section degrades to a clear "disabled"/"unavailable" message without these)
+apt install openscad xvfb ngspice libngspice0-dev calculix-ccx bluez
+pip install -e ".[screen,ogun,finder]"
 
 # terminal 1 — backend
 python -m boddos --config config/boddos.yaml --port 8000
