@@ -1,0 +1,104 @@
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+.wordmark {
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-size: 0.95rem;
+  color: var(--ink);
+  background: none;
+  border: none;
+  padding: 0;
+}
+.wordmark span { color: var(--accent); }
+
+.topnav { display: flex; gap: 0.4rem; margin-left: auto; }
+.topnav button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ink-dim);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.topnav button.active { color: var(--ink); border-color: var(--line-strong); background: var(--surface); }
+.topnav button:hover { color: var(--ink); }
+
+.stage { flex: 1; min-height: 0; position: relative; }
+
+/* ---- home ---- */
+.home {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  gap: 1rem;
+}
+
+.hero-globe { width: min(64vh, 560px); height: min(64vh, 560px); }
+
+.home-title {
+  text-align: center;
+  margin-top: -1rem;
+}
+.home-title h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+.home-title p {
+  color: var(--ink-dim);
+  margin: 0.4rem 0 0;
+  font-size: 0.95rem;
+}
+
+.nav-cards {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.nav-card {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  padding: 0.9rem 1.3rem;
+  color: var(--ink);
+  text-align: left;
+  min-width: 13rem;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.nav-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.nav-card strong { display: block; font-size: 0.98rem; }
+.nav-card span { color: var(--ink-dim); font-size: 0.8rem; }
+
+/* ---- floating widget ---- */
+.orun-widget {
+  border-radius: 50%;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--line-strong);
+  cursor: grab;
+}
+.orun-widget:active { cursor: grabbing; }

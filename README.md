@@ -99,3 +99,26 @@ Then open `http://<this-machine-ip>:8787/` on your phone (same network).
 See [`docs/USAGE.md`](docs/USAGE.md) for how to use Ori across all your devices,
 [`docs/DEPLOY.md`](docs/DEPLOY.md) for the full 3-machine + ESP32 setup, and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the pieces fit.
+
+## New frontend: the Orun shell
+
+`frontend/` is a from-scratch React + Three.js UI: a persistent, draggable
+geometric globe (binary strip above its equator, two odu-style strips below)
+that vibrates with your mic while you talk and with the assistant's reply
+while it speaks, plus three sections — **Orunmila** (chat, wired live to
+`/api/chat/stream`), **Esu Pathfinder**, and **Ogun 3D** (the latter two are
+tool-map placeholders, not yet wired up). It talks to the same backend above
+over `/api`, proxied in dev.
+
+```bash
+# terminal 1 — backend
+python -m boddos --config config/boddos.yaml --port 8000
+
+# terminal 2 — frontend
+cd frontend && npm install && npm run dev   # http://localhost:5173
+```
+
+The backend's default port is 8787 (see Install above); the frontend dev
+proxy in `frontend/vite.config.ts` expects it on 8000, so pass `--port 8000`
+or edit the proxy target to match. The old `boddos/ui/` PWA still works
+unchanged and is still served at `/` by the backend directly.
