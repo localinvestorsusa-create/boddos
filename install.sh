@@ -127,7 +127,11 @@ if [ -f "$CFG" ]; then
 else
   say "Generating config"
   TOKEN=$(python3 -c 'import secrets;print(secrets.token_urlsafe(24))')
-  ID=$(hostname | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9' | cut -c1-16)
+  # Hostname alone isn't reliably unique — cloned VMs, default "DESKTOP-XXXX"
+  # names, and identically-provisioned machines collide often enough that
+  # this bit it a random suffix rather than risk two nodes sharing an id
+  # (which makes the mesh silently drop one of them as "itself").
+  ID="$(hostname | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9' | cut -c1-12)-$(python3 -c 'import secrets;print(secrets.token_hex(3))')"
   IP=$(python3 - <<'PY'
 import socket
 s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)

@@ -103,20 +103,23 @@ See [`docs/USAGE.md`](docs/USAGE.md) for how to use Ori across all your devices,
 
 ## Adding a second machine
 
-Run the installer on the new machine too, then point each node's
-`mesh.peers` at the other's `advertise_url` with a matching `mesh.psk`:
+One line, no config editing. On the machine that's already running:
 
-```yaml
-# machine A's config/boddos.yaml
-mesh:
-  psk: "same-secret-on-both"
-  peers: ["http://machine-b-ip:8787"]
-
-# machine B's config/boddos.yaml
-mesh:
-  psk: "same-secret-on-both"
-  peers: ["http://machine-a-ip:8787"]
+```bash
+python -m boddos --config config/boddos.yaml --join-code
 ```
+
+That prints a token and a ready-to-paste command. Run it on the new
+machine and the installer decodes the token straight into that node's
+`mesh.psk`/`mesh.peers` — no manual YAML editing, matching secrets typed
+by hand, or guessing an IP:
+
+```bash
+BODDOS_JOIN=bd1.XXXXX curl -fsSL <the install.sh URL you used> | bash -s -- --join $BODDOS_JOIN
+```
+
+(To do it by hand instead: match `mesh.psk` on both nodes and put each
+one's `advertise_url` in the other's `mesh.peers`.)
 
 Within one heartbeat interval (`mesh.heartbeat_seconds`, default 10s) each
 node shows up in the other's registry — visible live in Orunmila's mesh
