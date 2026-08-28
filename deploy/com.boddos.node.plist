@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd agent for a BODDOS node on macOS (the MacBook primary host).
+  Install:
+    cp deploy/com.boddos.node.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.boddos.node.plist
+  Adjust paths to your checkout. Put secrets in the environment via a wrapper
+  script or keychain, not in this file.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.boddos.node</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/YOU/boddos/.venv/bin/python</string>
+    <string>-m</string>
+    <string>boddos</string>
+    <string>--config</string>
+    <string>/Users/YOU/boddos/config/boddos.yaml</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/YOU/boddos</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/YOU/Library/Logs/boddos.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/YOU/Library/Logs/boddos.err.log</string>
+</dict>
+</plist>
