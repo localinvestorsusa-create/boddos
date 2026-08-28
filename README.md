@@ -137,12 +137,18 @@ that vibrates with your mic while you talk and with the assistant's reply
 while it speaks, plus three sections wired to real backend tools:
 
 - **Orunmila** — chat (`/api/chat/stream`), continuous "hey ori" wake-word
-  voice loop, a screen-control panel (screenshot → local vision model →
-  click, gated behind `screen.enabled` + a per-click confirm), a mesh
-  panel showing this machine's auto-detected hardware plus every peer node
-  and its specs live, and a **device finder** — scan for nearby Bluetooth
-  devices you own (earbuds, a tag) and track one with a "getting warmer/
-  colder" proximity readout from its real BLE signal strength.
+  voice loop, the **skill portal** ("new wishes"): pull a GitHub repo,
+  compress it with RepoMix, ask Ori to draft a small Python skill from it
+  (or write one by hand), run it past an AST + Bandit security gate, and
+  save it as a **muscle-memory tool** — a manifest-driven card, styled in
+  the app's own theme, that runs the saved script directly via subprocess
+  with one click and zero further model calls; a screen-control panel
+  (screenshot → local vision model → click, gated behind `screen.enabled`
+  + a per-click confirm), a mesh panel showing this machine's auto-detected
+  hardware plus every peer node and its specs live, and a **device finder**
+  — scan for nearby Bluetooth devices you own (earbuds, a tag) and track
+  one with a "getting warmer/colder" proximity readout from its real BLE
+  signal strength.
 - **Esu Pathfinder** — turn-by-turn directions on a Leaflet/OSM map
   (Nominatim + OSRM) and a camera "lookout" that describes hazards via the
   local vision model.
@@ -157,10 +163,12 @@ while it speaks, plus three sections wired to real backend tools:
 It talks to the same backend above over `/api`, proxied in dev.
 
 ```bash
-# system deps for screen control, Ogun 3D, and the device finder (optional —
-# each section degrades to a clear "disabled"/"unavailable" message without these)
-apt install openscad xvfb ngspice libngspice0-dev calculix-ccx bluez
-pip install -e ".[screen,ogun,finder]"
+# system deps for screen control, Ogun 3D, the device finder, and the
+# skill portal (optional — each section degrades to a clear
+# "disabled"/"unavailable" message without these)
+apt install openscad xvfb ngspice libngspice0-dev calculix-ccx bluez git
+npm install -g repomix   # or rely on `npx repomix`, which fetches it on first use
+pip install -e ".[screen,ogun,finder,skills]"
 
 # terminal 1 — backend
 python -m boddos --config config/boddos.yaml --port 8000

@@ -5,7 +5,10 @@ import { VoiceController, speechRecognitionSupported, type VoiceMode } from '../
 import ScreenControl from './ScreenControl';
 import MeshPanel from './MeshPanel';
 import FinderPanel from './FinderPanel';
+import SkillPortal from './SkillPortal';
+import MuscleMemoryGrid from './MuscleMemoryGrid';
 import './sections.css';
+import './ogun.css';
 
 interface OrunmilaProps {
   micLevel: MicLevel;
@@ -24,6 +27,7 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('off');
+  const [skillsVersion, setSkillsVersion] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const voiceRef = useRef<VoiceController | null>(null);
   const sendRef = useRef<(text: string) => void>(() => {});
@@ -159,6 +163,8 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
         </form>
       </div>
 
+      <SkillPortal onSaved={() => setSkillsVersion((v) => v + 1)} />
+      <MuscleMemoryGrid refreshKey={skillsVersion} />
       <MeshPanel />
       <FinderPanel />
       <ScreenControl />

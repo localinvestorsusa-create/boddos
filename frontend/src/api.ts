@@ -109,6 +109,102 @@ export async function fetchFinderStatus(): Promise<FinderStatus> {
   return res.json();
 }
 
+export interface FetchRepoResult {
+  ok: boolean;
+  error?: string;
+  source: string;
+  files_packed: number;
+  compressed: string;
+  compressed_chars: number;
+}
+
+export async function fetchRepo(source: string): Promise<FetchRepoResult> {
+  const res = await fetch('/api/skills/fetch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source }),
+  });
+  return res.json();
+}
+
+export interface BanditFinding {
+  test: string;
+  severity: string;
+  confidence: string;
+  line: number;
+  text: string;
+}
+
+export interface ScanResult {
+  ok: boolean;
+  error?: string;
+  ast_findings: string[];
+  bandit_findings: BanditFinding[];
+}
+
+export async function scanSkillScript(script: string): Promise<ScanResult> {
+  const res = await fetch('/api/skills/scan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ script }),
+  });
+  return res.json();
+}
+
+export interface SkillInputSpec {
+  name: string;
+  label: string;
+  type: 'text' | 'number';
+}
+
+export interface SkillRecord {
+  slug: string;
+  label: string;
+  description: string;
+  inputs: SkillInputSpec[];
+  source_repo: string;
+}
+
+export async function saveSkill(
+  script: string,
+  manifest: { skill_id?: string; label: string; description?: string; inputs?: SkillInputSpec[] },
+): Promise<{ ok: boolean; error?: string; skill?: SkillRecord }> {
+  const res = await fetch('/api/skills/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ script, manifest, confirm: true }),
+  });
+  return res.json();
+}
+
+export async function listSkills(): Promise<SkillRecord[]> {
+  const res = await fetch('/api/skills');
+  const data = await res.json();
+  return data.skills;
+}
+
+export interface SkillRunResult {
+  ok: boolean;
+  error?: string;
+  stdout: string;
+  stderr: string;
+  exit_code: number | null;
+}
+
+export async function runSkill(slug: string, inputs: Record<string, string>): Promise<SkillRunResult> {
+  const res = await fetch(`/api/skills/${encodeURIComponent(slug)}/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inputs }),
+  });
+  return res.json();
+}
+
+export async function deleteSkill(slug: string): Promise<{ ok: boolean }> {
+  const res = await fetch(`/api/skills/${encodeURIComponent(slug)}`, { method: 'DELETE' });
+  return res.json();
+}
+
 export interface RouteStep {
   instruction: string;
   distance_m: number;

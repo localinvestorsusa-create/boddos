@@ -73,6 +73,23 @@ ogun:
   # Material lookup fails cleanly with no key configured; nothing else here needs one.
   materials_api_key: ""
 
+skills:
+  # The Skill Portal (Orunmila's "new wishes"): fetch an open-source repo,
+  # compress it with RepoMix, security-gate any code with AST + Bandit,
+  # save it as a manifest-described tool other panels render and run in
+  # one click with no further model call. Needs `pip install
+  # 'boddos[skills]'` (Bandit) and Node/npx (already required by the
+  # frontend) for RepoMix.
+  enabled: true
+  # Saving still requires this even though the scan already ran — static
+  # analysis is a real check, not a guarantee.
+  require_confirm: true
+  workdir: "~/.boddos/workspace_skills"
+  max_repo_files: 400
+  max_compressed_chars: 60000
+  fetch_timeout_s: 45.0
+  run_timeout_s: 20.0
+
 services:
   weather:
     enabled: true

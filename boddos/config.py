@@ -97,6 +97,20 @@ class FinderCfg(BaseModel):
     enabled: bool = True
 
 
+class SkillsCfg(BaseModel):
+    # The Skill Portal: fetch -> RepoMix compress -> AST/Bandit gate ->
+    # save -> one-click "muscle memory" run. Saving executes an AST/Bandit
+    # scan either way, but still requires an explicit confirm — static
+    # analysis is a real check, not a guarantee (see boddos/skills/portal.py).
+    enabled: bool = True
+    require_confirm: bool = True
+    workdir: str = "~/.boddos/workspace_skills"
+    max_repo_files: int = 400
+    max_compressed_chars: int = 60000
+    fetch_timeout_s: float = 45.0
+    run_timeout_s: float = 20.0
+
+
 class DroneCfg(BaseModel):
     enabled: bool = False
     endpoint: str = ""
@@ -199,6 +213,7 @@ class Config(BaseModel):
     agent: AgentCfg = Field(default_factory=AgentCfg)
     screen: ScreenCfg = Field(default_factory=ScreenCfg)
     ogun: OgunCfg = Field(default_factory=OgunCfg)
+    skills: SkillsCfg = Field(default_factory=SkillsCfg)
     services: ServicesCfg = Field(default_factory=ServicesCfg)
     safety: SafetyCfg = Field(default_factory=SafetyCfg)
     security: SecurityCfg = Field(default_factory=SecurityCfg)

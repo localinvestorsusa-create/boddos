@@ -300,3 +300,81 @@
 .finder-meter span.lit { background: var(--accent); border-color: var(--accent); }
 
 .finder-readout { font-size: 1rem; margin: 0; text-transform: capitalize; }
+
+/* ---- skill portal ---- */
+.skill-fields { display: flex; gap: 0.6rem; margin-top: 0.9rem; }
+.skill-label-input {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 0.5rem;
+  color: var(--ink);
+  padding: 0.55rem 0.75rem;
+  font-family: 'Sora', sans-serif;
+  font-size: 0.88rem;
+}
+
+.skill-inputs-editor { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.6rem; }
+.skill-input-row { display: flex; gap: 0.4rem; align-items: center; }
+.skill-input-row input, .skill-input-row select {
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 0.4rem;
+  color: var(--ink);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.82rem;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.skill-input-row input { flex: 1; }
+.skill-add-input-btn {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+  border-radius: 0.4rem;
+  color: var(--ink-dim);
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+.scan-pass, .scan-fail { margin-top: 0.9rem; }
+.scan-fail .combustion-warnings li { color: var(--warn-line, var(--accent)); }
+
+/* ---- muscle memory grid ---- */
+.skill-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.8rem;
+}
+.skill-grid li.empty {
+  grid-column: 1 / -1;
+  color: var(--ink-dim);
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.88rem;
+}
+.skill-card {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.skill-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+.skill-card-head strong { display: block; font-size: 0.95rem; }
+.skill-card-desc { display: block; color: var(--ink-dim); font-size: 0.78rem; margin-top: 0.2rem; }
+.skill-card-inputs { display: flex; flex-direction: column; gap: 0.4rem; }
+.skill-card-inputs input {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 0.4rem;
+  color: var(--ink);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.82rem;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.skill-run-btn { align-self: flex-start; }

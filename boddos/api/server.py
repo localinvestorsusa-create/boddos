@@ -24,6 +24,7 @@ from ..models import OllamaProvider
 from ..models.base import ChatMessage
 from ..agent import OSAgent, ScreenAgent, fetch_url
 from ..ogun import CadStudio, ChemLab, CircuitLab, StructuresLab, AerospaceLab, BioLab, MaterialsLab
+from ..skills import SkillPortal
 from ..services import (
     get_forecast, translate_to_english, DroneAdapter, CallingAdapter, geocode, route, directions,
     DeviceFinder,
@@ -82,6 +83,7 @@ class NodeState:
         self.aerospace = AerospaceLab(cfg.ogun)
         self.bio = BioLab(cfg.ogun)
         self.materials = MaterialsLab(cfg.ogun)
+        self.skills = SkillPortal(cfg.skills)
         self.drone = DroneAdapter(cfg.services.drone)
         self.calling = CallingAdapter(cfg.services.calling)
         self.notifier = Notifier(cfg.services.notify)
@@ -267,6 +269,44 @@ def build_app(cfg: Config) -> FastAPI:
     @app.get("/api/hardware")
     async def api_hardware():
         return state.hardware.to_dict()
+
+    # -------------------------- skill portal --------------------------
+    @app.post("/api/skills/fetch")
+    async def api_skills_fetch(req: dict):
+        res = await state.skills.fetch(req.get("source", ""))
+        state.audit.record("skills.fetch", {"ok": res.ok, "source": req.get("source")})
+        return res.to_dict()
+
+    @app.post("/api/skills/scan")
+    async def api_skills_scan(req: dict):
+        res = await state.skills.scan(req.get("script", ""))
+        return res.to_dict()
+
+    @app.post("/api/skills/save")
+    async def api_skills_save(req: dict):
+        record, err = await state.skills.save(
+            req.get("script", ""), req.get("manifest", {}), confirm=bool(req.get("confirm")),
+        )
+        state.audit.record("skills.save", {"ok": record is not None, "error": err})
+        if record is None:
+            return {"ok": False, "error": err}
+        return {"ok": True, "skill": record.to_dict()}
+
+    @app.get("/api/skills")
+    async def api_skills_list():
+        return {"skills": [s.to_dict() for s in state.skills.list_skills()]}
+
+    @app.post("/api/skills/{slug}/run")
+    async def api_skills_run(slug: str, req: dict | None = None):
+        res = await state.skills.run(slug, (req or {}).get("inputs", {}))
+        state.audit.record("skills.run", {"ok": res.ok, "slug": slug})
+        return res.to_dict()
+
+    @app.delete("/api/skills/{slug}")
+    async def api_skills_delete(slug: str):
+        ok = state.skills.delete_skill(slug)
+        state.audit.record("skills.delete", {"ok": ok, "slug": slug})
+        return {"ok": ok}
 
     @app.post("/api/chat")
     async def api_chat(req: dict, x_boddos_forwarded: str | None = Header(default=None)):
