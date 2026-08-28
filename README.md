@@ -143,8 +143,10 @@ while it speaks, plus three sections wired to real backend tools:
   save it as a **muscle-memory tool** — a manifest-driven card, styled in
   the app's own theme, that runs the saved script directly via subprocess
   with one click and zero further model calls; a screen-control panel
-  (screenshot → local vision model → click, gated behind `screen.enabled`
-  + a per-click confirm), a mesh panel showing this machine's auto-detected
+  (screenshot → local vision model → click, gated behind `screen.enabled`)
+  for manual point-and-click, plus a `drive_screen` voice/chat tool that
+  autonomously works toward a goal across several clicks at full speed
+  (see "Voice control" below); a mesh panel showing this machine's auto-detected
   hardware plus every peer node and its specs live, and a **device finder**
   — scan for nearby Bluetooth devices you own (earbuds, a tag) and track
   one with a "getting warmer/colder" proximity readout from its real BLE
@@ -161,6 +163,37 @@ while it speaks, plus three sections wired to real backend tools:
   properties via the Materials Project (needs a free API key).
 
 It talks to the same backend above over `/api`, proxied in dev.
+
+### Voice control: every action is a tool call
+
+Orunmila's chat isn't just talk — `/api/chat/stream` runs a real agentic
+tool-calling loop (`boddos/tools/registry.py`) against every action this
+node can take: build a 3D model, check combustion, simulate a circuit/beam/
+rocket, analyze a sequence, get directions, scan for a lost device, run a
+muscle-memory skill, look at or drive this machine's own screen, and more.
+Ask for something that needs one and the model just calls it — no button
+required — and it can chain or parallelize several calls in one turn (look
+up a skill, run it, check the result) rather than stopping after the first
+step. Each call/result narrates live in the chat as "using X..." with a
+✓/✗ once it resolves. This makes the wake-word voice loop a full voice
+control surface for free: anything typed also works spoken.
+
+Deliberately left out of tool-calling: the duress trigger, the encrypted
+vault, 2FA verification, and geofence/breach edits stay manual/REST-only —
+a misheard voice command is the wrong way to fire a real panic alert or
+read vault secrets aloud.
+
+**Screen control runs at full speed by default.** `drive_screen` is a
+perceive → decide → act loop (screenshot, ask what's on screen, ask which
+single action gets closer to the goal, act, repeat) with no artificial
+delay between steps — it moves as fast as the two model calls underneath
+it allow, not slowed down by a confirmation dialog per click. Two
+exceptions, both deliberate: pass `slow: true` (or just ask Ori to "go
+slow"/"show me") to insert a visible pause between steps when you want to
+watch it work, and anything that looks financial or destructive (pay,
+delete, send money, sudo, ...) always stops and asks for an explicit yes
+before acting, regardless of speed — see `is_sensitive()` in
+`boddos/agent/screen_agent.py` for the exact pattern list.
 
 ```bash
 # system deps for screen control, Ogun 3D, the device finder, and the

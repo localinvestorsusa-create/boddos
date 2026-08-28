@@ -65,6 +65,15 @@ class ScreenCfg(BaseModel):
     # Vision model used to describe what's on screen; falls back to
     # models.vision_model when unset.
     vision_model: str = ""
+    # The autonomous perceive-decide-act loop (`drive`) runs at full speed —
+    # no artificial per-step delay — unless the caller explicitly asks to
+    # watch it go slow. This does not affect the require_confirm gate above,
+    # which still applies to raw click/type/press calls made directly.
+    max_drive_steps: int = 12
+    # A drive step whose target/text looks financial or destructive (pay,
+    # delete, send money, sudo, ...) always pauses for an explicit human
+    # "yes" before it executes, regardless of speed.
+    require_confirm_for_sensitive: bool = True
 
 
 class WeatherCfg(BaseModel):

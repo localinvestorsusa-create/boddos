@@ -91,6 +91,23 @@ class OllamaProvider:
         except Exception as e:
             yield f"[model unavailable: {e}. Is Ollama running at {self.base_url}?]"
 
+    async def chat_with_tools(self, model: str, messages: list[dict],
+                              tools: list[dict]) -> dict:
+        """One non-streaming tool-calling round. Ollama's /api/chat accepts an
+        OpenAI-style `tools` array and, for a tool-capable model, returns
+        `message.tool_calls` (already-parsed argument dicts, not a JSON
+        string) instead of/alongside `content` when it wants to call one."""
+        payload = {"model": model, "messages": messages, "tools": tools, "stream": False}
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as c:
+                r = await c.post(f"{self.base_url}/api/chat", json=payload)
+                r.raise_for_status()
+                return r.json().get("message", {"role": "assistant", "content": ""})
+        except httpx.HTTPStatusError as e:
+            return {"role": "assistant", "content": f"[model error: {e.response.status_code} — is '{model}' pulled?]"}
+        except Exception as e:
+            return {"role": "assistant", "content": f"[model unavailable: {e}. Is Ollama running at {self.base_url}?]"}
+
     async def pull(self, model: str) -> AsyncIterator[dict]:
         """Pull a model, yielding {status, completed, total} progress dicts."""
         try:

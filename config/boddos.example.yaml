@@ -57,6 +57,13 @@ screen:
   require_confirm: true
   # Falls back to models.vision_model when blank.
   vision_model: ""
+  # The autonomous drive_screen loop (perceive -> decide -> act) runs at
+  # full speed with no added delay by default, capped at this many steps
+  # per request. A voice/chat request can still ask it to go slow to watch.
+  max_drive_steps: 12
+  # A drive step that looks financial or destructive (pay, delete, sudo, ...)
+  # always pauses for an explicit human "yes" first, regardless of speed.
+  require_confirm_for_sensitive: true
 
 ogun:
   # Ogun 3D's building tools: OpenSCAD modeling, Cantera combustion checks,

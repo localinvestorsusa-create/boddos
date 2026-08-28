@@ -92,6 +92,22 @@
 }
 .bubble.user p { background: color-mix(in srgb, var(--accent) 20%, var(--surface-2)); }
 
+.tool-log {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+}
+.tool-log li { display: flex; gap: 0.4rem; align-items: baseline; }
+.tool-log li.running { color: var(--ink-dim); }
+.tool-log li.ok { color: var(--accent-2); }
+.tool-log li.error { color: var(--accent); }
+.tool-log li .tool-mark { width: 1em; flex: none; }
+
 .chat-input {
   display: flex;
   gap: 0.6rem;

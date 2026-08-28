@@ -25,6 +25,7 @@ from ..models.base import ChatMessage
 from ..agent import OSAgent, ScreenAgent, fetch_url
 from ..ogun import CadStudio, ChemLab, CircuitLab, StructuresLab, AerospaceLab, BioLab, MaterialsLab
 from ..skills import SkillPortal
+from ..tools import build_tool_registry
 from ..services import (
     get_forecast, translate_to_english, DroneAdapter, CallingAdapter, geocode, route, directions,
     DeviceFinder,
@@ -48,7 +49,19 @@ def advisor_system(name: str) -> str:
         "on the user's own machines. Be concise, practical, and honest — you are "
         "often spoken to and answered aloud, so keep replies natural and to the "
         "point. You help the user protect themselves and get things done. You do "
-        "not help surveil, deceive, or manipulate other people."
+        "not help surveil, deceive, or manipulate other people.\n\n"
+        "You have real tools wired to this machine — 3D modeling, chemistry, "
+        "circuits, structural/rocket simulation, biology, directions, a Bluetooth "
+        "device finder, muscle-memory skills, and control of this machine's own "
+        "screen. When a request needs one, just call it — don't ask permission "
+        "first or describe what you would do, do it. A single request often needs "
+        "several tool calls in a row (e.g. look up a skill, run it, then check the "
+        "result) or several at once — chain and parallelize freely to fully "
+        "satisfy the request in one turn rather than stopping after the first "
+        "step. Report results plainly once you have them. The one exception is "
+        "drive_screen: if it comes back with awaiting_confirmation, stop and ask "
+        "the user for an explicit yes before calling it again — that field means "
+        "the next click looks financial or destructive."
     )
 
 # Paths reachable without a client token (so the UI can load and prompt for one).
@@ -118,6 +131,11 @@ class NodeState:
             lockout_seconds=cfg.security.lockout_seconds,
         )
         self.vault = SecretVault(cfg.security.vault_file)
+
+        # --- voice/chat tool-calling: every action above, reachable from the
+        # agentic loop in /api/chat/stream. Built last so it can bind every
+        # subsystem constructed above.
+        self.tools = build_tool_registry(self, cfg)
 
     def hello_payload(self) -> dict:
         me = self.registry.me
@@ -348,16 +366,83 @@ def build_app(cfg: Config) -> FastAPI:
             msgs.insert(0, ChatMessage("system", advisor_system(cfg.assistant.name)))
         return msgs
 
+    MAX_TOOL_ROUNDS = 6
+
+    async def _execute_tool_call(call: dict) -> tuple[str, dict]:
+        fn = call.get("function", {})
+        name = fn.get("name", "")
+        raw_args = fn.get("arguments", {})
+        if isinstance(raw_args, str):
+            try:
+                args = json.loads(raw_args) if raw_args else {}
+            except json.JSONDecodeError:
+                args = {}
+        else:
+            args = raw_args or {}
+        spec = state.tools.get(name)
+        if spec is None:
+            return name, {"ok": False, "error": f"unknown tool: {name}"}
+        try:
+            result = await spec.fn(**args)
+            if not isinstance(result, dict):
+                result = {"ok": True, "result": result}
+            return name, result
+        except TypeError as e:
+            return name, {"ok": False, "error": f"bad arguments for {name}: {e}"}
+        except Exception as e:
+            return name, {"ok": False, "error": f"{name} failed: {e}"}
+
+    async def _agentic_stream(model: str, msgs: list[ChatMessage]):
+        """The tool-calling loop: ask the model, execute anything it wants to
+        call — possibly several tools in one round, run concurrently — feed
+        the results back, and repeat until it answers in plain text or the
+        round cap is hit. Every call/result is yielded as its own SSE event
+        so the UI can narrate "using X..." live; the final answer streams as
+        plain text same as before tool-calling existed."""
+        tool_defs = [spec.to_ollama_tool() for spec in state.tools.values()]
+        raw_msgs: list[dict] = [m.to_dict() for m in msgs]
+
+        for _ in range(MAX_TOOL_ROUNDS):
+            message = await state.provider.chat_with_tools(model, raw_msgs, tool_defs)
+            calls = message.get("tool_calls") or []
+            if not calls:
+                content = message.get("content", "")
+                if content:
+                    yield {"t": content}
+                return
+
+            raw_msgs.append({"role": "assistant", "content": message.get("content", ""), "tool_calls": calls})
+            for call in calls:
+                fn = call.get("function", {})
+                yield {"tool_call": {"name": fn.get("name", ""), "args": fn.get("arguments", {})}}
+
+            results = await asyncio.gather(*(_execute_tool_call(c) for c in calls))
+            for name, result in results:
+                yield {"tool_result": {"name": name, "ok": bool(result.get("ok", True))}}
+                raw_msgs.append({"role": "tool", "name": name, "content": json.dumps(result)[:6000]})
+
+        yield {"t": "\n\n[reached this turn's tool-call limit — ask me to continue and I'll pick up from here]"}
+
     @app.post("/api/chat/stream")
     async def api_chat_stream(req: dict, x_boddos_forwarded: str | None = Header(default=None)):
         model = req.get("model") or cfg.models.default_model
         msgs = _build_messages(req)
         images = req.get("images")
         target = state.router.select_model_node(model, state.local_models)
+        use_peer = target.id != state.registry.me.id and not x_boddos_forwarded
+        # Tools act on THIS node's own hardware/screen/services, so they only
+        # run for a genuinely local request — never when this node is just
+        # serving compute for a peer's user, and never alongside images
+        # (vision + tool-calling together isn't attempted here).
+        use_tools = (not use_peer) and (not x_boddos_forwarded) and not images and req.get("tools", True) and bool(state.tools)
 
         async def gen_local():
-            async for chunk in state.provider.chat_stream(model, msgs, images):
-                yield f"data: {json.dumps({'t': chunk})}\n\n"
+            if use_tools:
+                async for event in _agentic_stream(model, msgs):
+                    yield f"data: {json.dumps(event)}\n\n"
+            else:
+                async for chunk in state.provider.chat_stream(model, msgs, images):
+                    yield f"data: {json.dumps({'t': chunk})}\n\n"
             yield f"data: {json.dumps({'done': True, 'served_by': state.registry.me.id})}\n\n"
 
         async def gen_peer():
@@ -378,7 +463,6 @@ def build_app(cfg: Config) -> FastAPI:
                     yield f"data: {json.dumps({'t': chunk})}\n\n"
                 yield f"data: {json.dumps({'done': True})}\n\n"
 
-        use_peer = target.id != state.registry.me.id and not x_boddos_forwarded
         gen = gen_peer if use_peer else gen_local
         return StreamingResponse(gen(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
@@ -455,6 +539,21 @@ def build_app(cfg: Config) -> FastAPI:
         _require_2fa(req, "screen.press")
         res = state.screen.press(req.get("key", ""), confirm=bool(req.get("confirm")))
         state.audit.record("screen.press", {"ok": res.ok, "key": req.get("key")})
+        return res.to_dict()
+
+    @app.post("/api/agent/screen/drive")
+    async def api_screen_drive(req: dict):
+        _require_2fa(req, "screen.drive")
+        goal = req.get("goal", "").strip()
+        if not goal:
+            return {"ok": False, "error": "goal required"}
+        model = req.get("model") or cfg.models.default_model
+        vision_model = cfg.screen.vision_model or cfg.models.vision_model
+        res = await state.screen.drive(
+            state.provider, model, vision_model, goal,
+            req.get("max_steps"), bool(req.get("slow")),
+        )
+        state.audit.record("screen.drive", {"ok": res.ok, "goal": goal, "finished": res.finished})
         return res.to_dict()
 
     # --------------------------- services -------------------------

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { fetchUiConfig, streamChat, type ChatMessage, type UiConfig } from '../api';
+import { fetchUiConfig, streamChat, type ChatMessage, type ToolActivity, type UiConfig } from '../api';
 import { speak, type MicLevel, type PulseLevel } from '../orun/audio';
 import { VoiceController, speechRecognitionSupported, type VoiceMode } from '../orun/voice';
 import ScreenControl from './ScreenControl';
@@ -15,9 +15,19 @@ interface OrunmilaProps {
   replyLevel: PulseLevel;
 }
 
+interface ToolLogEntry {
+  name: string;
+  ok?: boolean; // undefined while the call is still running
+}
+
 interface Turn {
   role: 'user' | 'assistant';
   text: string;
+  tools?: ToolLogEntry[];
+}
+
+function humanizeTool(name: string): string {
+  return name.replace(/_/g, ' ');
 }
 
 export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
@@ -51,14 +61,34 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
     setTurns((prev) => [...prev, { role: 'user', text: clean }, { role: 'assistant', text: '' }]);
     setBusy(true);
     try {
-      const full = await streamChat(history, (chunk) => {
-        replyLevel.bump(0.25 + Math.random() * 0.15);
-        setTurns((prev) => {
-          const next = [...prev];
-          next[next.length - 1] = { role: 'assistant', text: next[next.length - 1].text + chunk };
-          return next;
-        });
-      });
+      const full = await streamChat(
+        history,
+        (chunk) => {
+          replyLevel.bump(0.25 + Math.random() * 0.15);
+          setTurns((prev) => {
+            const next = [...prev];
+            const last = next[next.length - 1];
+            next[next.length - 1] = { ...last, text: last.text + chunk };
+            return next;
+          });
+        },
+        undefined,
+        (activity: ToolActivity) => {
+          setTurns((prev) => {
+            const next = [...prev];
+            const last = next[next.length - 1];
+            const tools = [...(last.tools ?? [])];
+            if (activity.kind === 'call') {
+              tools.push({ name: activity.name });
+            } else {
+              const openIdx = tools.map((t) => t.ok === undefined && t.name === activity.name).lastIndexOf(true);
+              if (openIdx !== -1) tools[openIdx] = { ...tools[openIdx], ok: activity.ok };
+            }
+            next[next.length - 1] = { ...last, tools };
+            return next;
+          });
+        },
+      );
       speak(full, () => replyLevel.bump(0.4));
     } catch (e) {
       setTurns((prev) => {
@@ -131,6 +161,16 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
           {turns.map((t, i) => (
             <div key={i} className={`bubble ${t.role}`}>
               <span className="bubble-role">{t.role === 'user' ? 'you' : name.toLowerCase()}</span>
+              {t.tools && t.tools.length > 0 && (
+                <ul className="tool-log">
+                  {t.tools.map((tl, j) => (
+                    <li key={j} className={tl.ok === undefined ? 'running' : tl.ok ? 'ok' : 'error'}>
+                      <span className="tool-mark">{tl.ok === undefined ? '…' : tl.ok ? '✓' : '✗'}</span>
+                      {humanizeTool(tl.name)}
+                    </li>
+                  ))}
+                </ul>
+              )}
               <p>{t.text || (busy && i === turns.length - 1 ? '…' : '')}</p>
             </div>
           ))}

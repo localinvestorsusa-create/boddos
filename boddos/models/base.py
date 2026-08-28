@@ -26,3 +26,11 @@ class ModelProvider(Protocol):
 
     async def available(self) -> bool:
         ...
+
+    async def chat_with_tools(self, model: str, messages: list[dict],
+                              tools: list[dict]) -> dict:
+        """One non-streaming round of tool-calling chat. `messages` and the
+        return value are raw dicts (OpenAI/Ollama message shape — including
+        `tool_calls` and `tool` role) rather than plain ChatMessage, since a
+        tool round-trip needs richer fields than role/content."""
+        ...

@@ -447,14 +447,25 @@ export async function simulateCircuit(
   return res.json();
 }
 
+export interface ToolActivity {
+  kind: 'call' | 'result';
+  name: string;
+  ok?: boolean;
+}
+
 /**
  * Streams a reply from /api/chat/stream (server-sent events) and reports
- * each token to onToken as it arrives. Resolves with the full reply text.
+ * each token to onToken as it arrives. When the model uses a tool
+ * mid-turn — building a model, checking the screen, running a skill, and
+ * so on — each call/result is reported to onTool as it happens, so the UI
+ * can narrate "using X..." live before the final answer streams in.
+ * Resolves with the full reply text.
  */
 export async function streamChat(
   messages: ChatMessage[],
   onToken: (chunk: string) => void,
   signal?: AbortSignal,
+  onTool?: (activity: ToolActivity) => void,
 ): Promise<string> {
   const res = await fetch('/api/chat/stream', {
     method: 'POST',
@@ -485,6 +496,12 @@ export async function streamChat(
         if (typeof evt.t === 'string') {
           full += evt.t;
           onToken(evt.t);
+        }
+        if (evt.tool_call?.name) {
+          onTool?.({ kind: 'call', name: evt.tool_call.name });
+        }
+        if (evt.tool_result?.name) {
+          onTool?.({ kind: 'result', name: evt.tool_result.name, ok: evt.tool_result.ok });
         }
         if (evt.done) return full;
       } catch {
