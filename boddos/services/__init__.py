@@ -5,6 +5,7 @@ from .drone import DroneAdapter
 from .calling import CallingAdapter
 from .notify import Notifier
 from .push import PushManager
+from .routing import geocode, route, directions
 
 __all__ = [
     "get_forecast",
@@ -13,4 +14,7 @@ __all__ = [
     "CallingAdapter",
     "Notifier",
     "PushManager",
+    "geocode",
+    "route",
+    "directions",
 ]

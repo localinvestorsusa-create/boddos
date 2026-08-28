@@ -17,6 +17,59 @@ export async function fetchUiConfig(): Promise<UiConfig> {
   return res.json();
 }
 
+export interface RouteStep {
+  instruction: string;
+  distance_m: number;
+  duration_s: number;
+}
+
+export interface RouteGeometry {
+  type: 'LineString';
+  coordinates: [number, number][]; // [lon, lat]
+}
+
+export interface DirectionsResult {
+  ok: boolean;
+  error?: string;
+  profile?: string;
+  distance_m?: number;
+  duration_s?: number;
+  geometry?: RouteGeometry;
+  steps?: RouteStep[];
+  destination?: string;
+  destination_lat?: number;
+  destination_lon?: number;
+}
+
+export async function fetchDirections(
+  fromLat: number,
+  fromLon: number,
+  destination: string,
+  profile: 'walking' | 'driving' | 'cycling' = 'walking',
+): Promise<DirectionsResult> {
+  const res = await fetch('/api/esu/directions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from_lat: fromLat, from_lon: fromLon, destination, profile }),
+  });
+  return res.json();
+}
+
+export interface VisionResult {
+  ok: boolean;
+  error?: string;
+  analysis?: string;
+}
+
+export async function analyzeImage(imageB64: string, prompt: string): Promise<VisionResult> {
+  const res = await fetch('/api/vision', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image_b64: imageB64, prompt }),
+  });
+  return res.json();
+}
+
 /**
  * Streams a reply from /api/chat/stream (server-sent events) and reports
  * each token to onToken as it arrives. Resolves with the full reply text.

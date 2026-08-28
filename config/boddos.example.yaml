@@ -72,6 +72,14 @@ services:
   calling:
     enabled: false
     provider: "none"   # plug in your own provider adapter
+  routing:
+    # Esu Pathfinder: geocoding + turn-by-turn directions to a named
+    # destination. Public OSM demo services by default (best-effort,
+    # rate-limited) — point these at a self-hosted Nominatim/OSRM for
+    # real use.
+    enabled: true
+    nominatim_url: "https://nominatim.openstreetmap.org"
+    osrm_url: "https://router.project-osrm.org"
   drone:
     enabled: false
     # e.g. "udp:127.0.0.1:14550" for a MAVLink endpoint you control

@@ -22,7 +22,9 @@ from ..config import Config
 from ..models import OllamaProvider
 from ..models.base import ChatMessage
 from ..agent import OSAgent, ScreenAgent, fetch_url
-from ..services import get_forecast, translate_to_english, DroneAdapter, CallingAdapter
+from ..services import (
+    get_forecast, translate_to_english, DroneAdapter, CallingAdapter, geocode, route, directions,
+)
 from ..services.notify import Notifier
 from ..services.push import PushManager
 from ..sensors import SensorFusion, Reading, CameraRegistry
@@ -410,6 +412,37 @@ def build_app(cfg: Config) -> FastAPI:
             return {"ok": False, "error": "translate disabled"}
         return await translate_to_english(state.provider, cfg.services.translate.model,
                                           req.get("text", ""))
+
+    # ----------------------- esu pathfinder -------------------------
+    @app.get("/api/esu/geocode")
+    async def api_esu_geocode(q: str):
+        if not cfg.services.routing.enabled:
+            return {"ok": False, "error": "routing disabled"}
+        return await geocode(q, cfg.services.routing.nominatim_url)
+
+    @app.get("/api/esu/route")
+    async def api_esu_route(from_lat: float, from_lon: float, to_lat: float, to_lon: float,
+                            profile: str = "walking"):
+        if not cfg.services.routing.enabled:
+            return {"ok": False, "error": "routing disabled"}
+        return await route(from_lat, from_lon, to_lat, to_lon, profile, cfg.services.routing.osrm_url)
+
+    @app.post("/api/esu/directions")
+    async def api_esu_directions(req: dict):
+        if not cfg.services.routing.enabled:
+            return {"ok": False, "error": "routing disabled"}
+        destination = req.get("destination", "").strip()
+        if not destination:
+            return {"ok": False, "error": "destination required"}
+        if req.get("from_lat") is None or req.get("from_lon") is None:
+            return {"ok": False, "error": "from_lat/from_lon required — share your location"}
+        result = await directions(
+            float(req["from_lat"]), float(req["from_lon"]), destination,
+            req.get("profile", "walking"),
+            cfg.services.routing.nominatim_url, cfg.services.routing.osrm_url,
+        )
+        state.audit.record("esu.directions", {"ok": result.get("ok"), "destination": destination})
+        return result
 
     @app.post("/api/drone")
     async def api_drone(req: dict):

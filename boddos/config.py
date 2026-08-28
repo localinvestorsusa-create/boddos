@@ -67,6 +67,13 @@ class CallingCfg(BaseModel):
     provider: str = "none"
 
 
+class RoutingCfg(BaseModel):
+    # Esu Pathfinder's wayfinding — geocoding + turn-by-turn directions.
+    enabled: bool = True
+    nominatim_url: str = "https://nominatim.openstreetmap.org"
+    osrm_url: str = "https://router.project-osrm.org"
+
+
 class DroneCfg(BaseModel):
     enabled: bool = False
     endpoint: str = ""
@@ -102,6 +109,7 @@ class ServicesCfg(BaseModel):
     weather: WeatherCfg = Field(default_factory=WeatherCfg)
     translate: TranslateCfg = Field(default_factory=TranslateCfg)
     calling: CallingCfg = Field(default_factory=CallingCfg)
+    routing: RoutingCfg = Field(default_factory=RoutingCfg)
     drone: DroneCfg = Field(default_factory=DroneCfg)
     notify: NotifyCfg = Field(default_factory=NotifyCfg)
     push: PushCfg = Field(default_factory=PushCfg)
