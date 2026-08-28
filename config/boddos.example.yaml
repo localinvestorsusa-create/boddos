@@ -50,6 +50,15 @@ agent:
   # Require an explicit confirm flag on each run request.
   require_confirm: true
 
+screen:
+  # Screenshot + click/type control of THIS machine's own display, gated
+  # behind the local vision model. Off by default; needs `pip install
+  # 'boddos[screen]'` and a real display (not a headless server).
+  enabled: false
+  require_confirm: true
+  # Falls back to models.vision_model when blank.
+  vision_model: ""
+
 services:
   weather:
     enabled: true

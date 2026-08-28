@@ -21,6 +21,7 @@ dependencies = [
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
 push = ["pywebpush>=1.14"]
 mavlink = ["pymavlink>=2.4"]
+screen = ["pyautogui>=0.9.54"]
 
 [project.scripts]
 boddos = "boddos.__main__:main"

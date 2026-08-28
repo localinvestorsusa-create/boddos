@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchUiConfig, streamChat, type ChatMessage, type UiConfig } from '../api';
 import { speak, type MicLevel, type PulseLevel } from '../orun/audio';
+import { VoiceController, speechRecognitionSupported, type VoiceMode } from '../orun/voice';
+import ScreenControl from './ScreenControl';
 import './sections.css';
 
 interface OrunmilaProps {
@@ -19,9 +21,10 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
-  const [listening, setListening] = useState(false);
+  const [voiceMode, setVoiceMode] = useState<VoiceMode>('off');
   const scrollRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<any>(null);
+  const voiceRef = useRef<VoiceController | null>(null);
+  const sendRef = useRef<(text: string) => void>(() => {});
 
   useEffect(() => {
     fetchUiConfig()
@@ -65,41 +68,41 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
     }
   }
 
-  function toggleListen() {
-    const SpeechRecognition = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
-    if (listening) {
-      recognitionRef.current?.stop();
+  // Keep a live reference so the voice controller (created once) always
+  // calls the latest `send`, which closes over current turns/busy state.
+  useEffect(() => {
+    sendRef.current = send;
+  });
+
+  useEffect(() => {
+    if (!config) return;
+    voiceRef.current = new VoiceController({
+      wakeWords: config.wake_words,
+      onCommand: (text) => sendRef.current(text),
+      onModeChange: setVoiceMode,
+    });
+    return () => voiceRef.current?.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config?.wake_words.join('|')]);
+
+  function toggleVoice() {
+    if (voiceMode !== 'off') {
+      voiceRef.current?.stop();
       micLevel.stop();
-      setListening(false);
       return;
     }
     micLevel.start().catch(() => {});
-    if (!SpeechRecognition) {
-      setListening(true);
-      return;
-    }
-    const rec = new SpeechRecognition();
-    rec.continuous = false;
-    rec.interimResults = false;
-    rec.lang = 'en-US';
-    rec.onresult = (e: any) => {
-      const text = e.results[0]?.[0]?.transcript ?? '';
-      if (text) send(text);
-    };
-    rec.onend = () => {
-      setListening(false);
-      micLevel.stop();
-    };
-    rec.onerror = () => {
-      setListening(false);
-      micLevel.stop();
-    };
-    recognitionRef.current = rec;
-    rec.start();
-    setListening(true);
+    voiceRef.current?.start('wake');
   }
 
   const name = config?.assistant_name ?? 'Orunmila';
+  const micLabel = !speechRecognitionSupported()
+    ? '🎙 no browser voice support'
+    : voiceMode === 'active'
+      ? '🔴 listening…'
+      : voiceMode === 'wake'
+        ? `😴 waiting for "hey ${name.toLowerCase()}"`
+        : `🎙 say "hey ${name.toLowerCase()}"`;
 
   return (
     <div className="section orunmila">
@@ -135,12 +138,13 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
         >
           <button
             type="button"
-            className={`mic-btn ${listening ? 'live' : ''}`}
-            onClick={toggleListen}
-            aria-pressed={listening}
-            aria-label="Toggle voice input"
+            className={`mic-btn ${voiceMode !== 'off' ? 'live' : ''}`}
+            onClick={toggleVoice}
+            aria-pressed={voiceMode !== 'off'}
+            aria-label="Toggle wake-word listening"
+            disabled={!speechRecognitionSupported()}
           >
-            {listening ? '● listening' : '🎙'}
+            {micLabel}
           </button>
           <input
             value={draft}
@@ -152,6 +156,8 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
           </button>
         </form>
       </div>
+
+      <ScreenControl />
     </div>
   );
 }

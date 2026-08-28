@@ -41,6 +41,16 @@ class AgentCfg(BaseModel):
     require_confirm: bool = True
 
 
+class ScreenCfg(BaseModel):
+    # Screenshot + click/type control of THIS machine's own display.
+    # Off by default; needs a real display (no-op on a headless node).
+    enabled: bool = False
+    require_confirm: bool = True
+    # Vision model used to describe what's on screen; falls back to
+    # models.vision_model when unset.
+    vision_model: str = ""
+
+
 class WeatherCfg(BaseModel):
     enabled: bool = True
     lat: float = 0.0
@@ -155,6 +165,7 @@ class Config(BaseModel):
     mesh: MeshCfg = Field(default_factory=MeshCfg)
     models: ModelsCfg = Field(default_factory=ModelsCfg)
     agent: AgentCfg = Field(default_factory=AgentCfg)
+    screen: ScreenCfg = Field(default_factory=ScreenCfg)
     services: ServicesCfg = Field(default_factory=ServicesCfg)
     safety: SafetyCfg = Field(default_factory=SafetyCfg)
     security: SecurityCfg = Field(default_factory=SecurityCfg)

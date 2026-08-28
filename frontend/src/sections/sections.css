@@ -123,9 +123,12 @@
   border: 1px solid var(--line-strong);
   color: var(--ink);
   border-radius: 0.5rem;
-  padding: 0 0.9rem;
-  font-size: 1rem;
+  padding: 0 0.8rem;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  flex: none;
 }
+.mic-btn:disabled { opacity: 0.45; }
 .mic-btn.live { border-color: var(--danger); color: var(--danger); }
 
 /* ---- placeholder tool sections ---- */
@@ -147,6 +150,70 @@
   color: var(--ink-dim);
 }
 .tool-group li strong { color: var(--ink); font-weight: 600; }
+
+/* ---- screen control ---- */
+.screen-control {
+  margin-top: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  padding: 1.1rem 1.3rem 1.3rem;
+}
+.screen-control-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.screen-control-head h3 {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  margin: 0;
+}
+.screen-control-head button {
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+.screen-control-head button:disabled { opacity: 0.5; }
+.screen-note { font-size: 0.85rem; color: var(--accent-2); margin: 0.7rem 0 0; }
+
+.screen-preview { margin-top: 1rem; }
+.screen-preview img {
+  width: 100%;
+  border-radius: 0.6rem;
+  border: 1px solid var(--line);
+  display: block;
+}
+.screen-preview ul { list-style: none; margin: 0.8rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.screen-preview li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  background: var(--surface-2);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.86rem;
+}
+.screen-preview li em { color: var(--ink-dim); font-style: normal; margin-right: 0.4rem; }
+.screen-preview li.empty { color: var(--ink-dim); justify-content: center; }
+.screen-preview li button {
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  color: var(--accent);
+  border-radius: 0.4rem;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  flex: none;
+}
 
 .status-note {
   margin-top: 2rem;

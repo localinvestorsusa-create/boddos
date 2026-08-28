@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from ..config import Config
 from ..models import OllamaProvider
 from ..models.base import ChatMessage
-from ..agent import OSAgent, fetch_url
+from ..agent import OSAgent, ScreenAgent, fetch_url
 from ..services import get_forecast, translate_to_english, DroneAdapter, CallingAdapter
 from ..services.notify import Notifier
 from ..services.push import PushManager
@@ -65,6 +65,7 @@ class NodeState:
         self.router = Router(self.registry)
         self.provider = OllamaProvider(cfg.models.ollama_url)
         self.agent = OSAgent(cfg.agent)
+        self.screen = ScreenAgent(cfg.screen)
         self.drone = DroneAdapter(cfg.services.drone)
         self.calling = CallingAdapter(cfg.services.calling)
         self.notifier = Notifier(cfg.services.notify)
@@ -362,6 +363,38 @@ def build_app(cfg: Config) -> FastAPI:
     @app.post("/api/agent/fetch")
     async def api_agent_fetch(req: dict):
         return await fetch_url(req.get("url", ""))
+
+    # ------------------------- screen control -----------------------
+    @app.post("/api/agent/screen/look")
+    async def api_screen_look(req: dict | None = None):
+        req = req or {}
+        model = req.get("model") or cfg.screen.vision_model or cfg.models.vision_model
+        res = await state.screen.look(state.provider, model, req.get("prompt"))
+        state.audit.record("screen.look", {"ok": res.ok, "elements": len(res.elements)})
+        return res.to_dict()
+
+    @app.post("/api/agent/screen/click")
+    async def api_screen_click(req: dict):
+        _require_2fa(req, "screen.click")
+        res = state.screen.click(float(req.get("x", 0)), float(req.get("y", 0)),
+                                 confirm=bool(req.get("confirm")))
+        state.audit.record("screen.click", {"ok": res.ok, "x": req.get("x"), "y": req.get("y")})
+        return res.to_dict()
+
+    @app.post("/api/agent/screen/type")
+    async def api_screen_type(req: dict):
+        _require_2fa(req, "screen.type")
+        text = req.get("text", "")
+        res = state.screen.type_text(text, confirm=bool(req.get("confirm")))
+        state.audit.record("screen.type", {"ok": res.ok, "chars": len(text)})
+        return res.to_dict()
+
+    @app.post("/api/agent/screen/press")
+    async def api_screen_press(req: dict):
+        _require_2fa(req, "screen.press")
+        res = state.screen.press(req.get("key", ""), confirm=bool(req.get("confirm")))
+        state.audit.record("screen.press", {"ok": res.ok, "key": req.get("key")})
+        return res.to_dict()
 
     # --------------------------- services -------------------------
     @app.get("/api/weather")
