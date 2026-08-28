@@ -36,9 +36,8 @@ models:
   default_model: "llama3.1"
   # Multimodal model for camera vision (`ollama pull llava`).
   vision_model: "llava"
-  # Capacity hint used by the mesh router to pick a host.
-  ram_gb: 32
-  has_gpu: true
+  # No ram_gb/has_gpu here to set — the node detects its own CPU/RAM/GPU
+  # at startup (see /api/hardware) and uses that for mesh routing instead.
 
 agent:
   # OS agent runs tasks on THIS machine only. Off by default; opt in per node.

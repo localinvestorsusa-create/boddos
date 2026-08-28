@@ -52,7 +52,20 @@ pip install --quiet --upgrade pip
 pip install --quiet -e ".[push]"
 ok "BODDOS installed"
 
-# 4. Ollama + models
+# 4. Hardware detection, then Ollama + the right-sized models
+say "Checking what this machine can actually run"
+HW_JSON=$(python3 -c "
+from boddos.hardware import detect
+import json
+print(json.dumps(detect().to_dict()))
+")
+DEFAULT_MODEL=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['recommended_model'])" "$HW_JSON")
+VISION_MODEL=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['recommended_vision_model'])" "$HW_JSON")
+HW_NOTE=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['notes'][0])" "$HW_JSON")
+RAM_GB=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['ram_gb'])" "$HW_JSON")
+HAS_GPU=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['has_gpu'])" "$HW_JSON")
+ok "${RAM_GB}GB RAM, GPU: ${HAS_GPU} → recommending $DEFAULT_MODEL ($HW_NOTE)"
+
 if command -v ollama >/dev/null; then
   ok "Ollama already installed"
   OLLAMA_OK=1
@@ -60,13 +73,13 @@ else
   if [[ "$(uname)" == "Darwin" || "$(uname)" == "Linux" ]] && ask "Install Ollama now (runs the local AI models)?"; then
     curl -fsSL https://ollama.com/install.sh | sh && OLLAMA_OK=1 || warn "Ollama install failed; install it later from https://ollama.com"
   else
-    warn "Skipping Ollama — install it later from https://ollama.com, then: ollama pull llama3.1 && ollama pull llava"
+    warn "Skipping Ollama — install it later from https://ollama.com, then: ollama pull $DEFAULT_MODEL && ollama pull $VISION_MODEL"
     OLLAMA_OK=0
   fi
 fi
-if [[ "${OLLAMA_OK:-0}" == "1" ]] && ask "Pull the advisor (llama3.1) and vision (llava) models now? (several GB)"; then
-  ollama pull llama3.1 || true
-  ollama pull llava || true
+if [[ "${OLLAMA_OK:-0}" == "1" ]] && ask "Pull $DEFAULT_MODEL (advisor) and $VISION_MODEL (vision) now? (several GB, sized to this machine)"; then
+  ollama pull "$DEFAULT_MODEL" || true
+  ollama pull "$VISION_MODEL" || true
 fi
 
 # 5. Config with fresh secrets
@@ -94,15 +107,17 @@ PY
   VPUB=$(echo "$VAPID" | grep vapid_public | sed 's/.*: *"\(.*\)"/\1/' || true)
   VPRIV=$(echo "$VAPID" | grep vapid_private | sed 's/.*: *"\(.*\)"/\1/' || true)
   cp config/boddos.example.yaml "$CFG"
-  python3 - "$CFG" "$ID" "$IP" "$PORT" "$PSK" "$TOKEN" "$VPUB" "$VPRIV" <<'PY'
+  python3 - "$CFG" "$ID" "$IP" "$PORT" "$PSK" "$TOKEN" "$VPUB" "$VPRIV" "$DEFAULT_MODEL" "$VISION_MODEL" <<'PY'
 import sys, yaml
-path, nid, ip, port, psk, token, vpub, vpriv = sys.argv[1:9]
+path, nid, ip, port, psk, token, vpub, vpriv, default_model, vision_model = sys.argv[1:11]
 d = yaml.safe_load(open(path))
 d["node"]["id"] = nid
 d["node"]["advertise_url"] = f"http://{ip}:{port}"
 d["node"]["bind_port"] = int(port)
 d["mesh"]["psk"] = psk
 d["mesh"]["peers"] = []
+d["models"]["default_model"] = default_model
+d["models"]["vision_model"] = vision_model
 d["security"]["require_auth"] = True
 d["security"]["api_token"] = token
 if vpub and vpriv:

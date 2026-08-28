@@ -15,6 +15,8 @@ class NodeInfo:
     url: str                     # advertise_url other nodes reach it at
     ram_gb: int = 0
     has_gpu: bool = False
+    vram_gb: float = 0.0
+    gpu_name: str = ""
     models: list[str] = field(default_factory=list)
     last_seen: float = field(default_factory=time.time)
 
@@ -46,6 +48,8 @@ class MeshRegistry:
             existing.url = info.url
             existing.ram_gb = info.ram_gb
             existing.has_gpu = info.has_gpu
+            existing.vram_gb = info.vram_gb
+            existing.gpu_name = info.gpu_name
             existing.models = info.models
             existing.touch()
         else:
@@ -60,6 +64,8 @@ class MeshRegistry:
                 url=payload.get("url", ""),
                 ram_gb=int(payload.get("ram_gb", 0)),
                 has_gpu=bool(payload.get("has_gpu", False)),
+                vram_gb=float(payload.get("vram_gb", 0.0)),
+                gpu_name=str(payload.get("gpu_name", "")),
                 models=list(payload.get("models", [])),
             )
         )

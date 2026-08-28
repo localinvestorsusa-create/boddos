@@ -17,6 +17,46 @@ export async function fetchUiConfig(): Promise<UiConfig> {
   return res.json();
 }
 
+export interface HardwareReport {
+  cpu_model: string;
+  cpu_cores: number;
+  ram_gb: number;
+  gpu_vendor: string | null;
+  gpu_name: string | null;
+  vram_gb: number;
+  has_gpu: boolean;
+  os_name: string;
+  recommended_model: string;
+  recommended_vision_model: string;
+  notes: string[];
+}
+
+export async function fetchHardware(): Promise<HardwareReport> {
+  const res = await fetch('/api/hardware');
+  if (!res.ok) throw new Error(`hardware ${res.status}`);
+  return res.json();
+}
+
+export interface MeshNode {
+  id: string;
+  name: string;
+  role: string;
+  url: string;
+  ram_gb: number;
+  has_gpu: boolean;
+  vram_gb: number;
+  gpu_name: string;
+  models: string[];
+  last_seen: number;
+}
+
+export async function fetchMeshNodes(): Promise<MeshNode[]> {
+  const res = await fetch('/mesh/nodes');
+  if (!res.ok) throw new Error(`mesh/nodes ${res.status}`);
+  const data = await res.json();
+  return data.nodes;
+}
+
 export interface RouteStep {
   instruction: string;
   distance_m: number;

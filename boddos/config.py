@@ -30,8 +30,9 @@ class ModelsCfg(BaseModel):
     default_model: str = "llama3.1"
     # Multimodal model for camera vision (pull it: `ollama pull llava`).
     vision_model: str = "llava"
-    ram_gb: int = 8
-    has_gpu: bool = False
+    # No ram_gb/has_gpu here — the node detects its own hardware at startup
+    # (boddos/hardware.py) rather than trusting a hand-edited number that
+    # drifts the moment you swap machines or add a GPU.
 
 
 class AgentCfg(BaseModel):

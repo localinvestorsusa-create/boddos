@@ -18,6 +18,7 @@ from fastapi import FastAPI, Header, HTTPException, Request, WebSocket, WebSocke
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from .. import hardware
 from ..config import Config
 from ..models import OllamaProvider
 from ..models.base import ChatMessage
@@ -55,13 +56,16 @@ _AUTH_EXEMPT_PREFIXES = ("/health", "/ui", "/manifest", "/sw.js", "/api/ui-confi
 class NodeState:
     def __init__(self, cfg: Config):
         self.cfg = cfg
+        self.hardware = hardware.detect()
         me = NodeInfo(
             id=cfg.node.id,
             name=cfg.node.name,
             role=cfg.node.role,
             url=cfg.node.advertise_url or f"http://127.0.0.1:{cfg.node.bind_port}",
-            ram_gb=cfg.models.ram_gb,
-            has_gpu=cfg.models.has_gpu,
+            ram_gb=round(self.hardware.ram_gb),
+            has_gpu=self.hardware.has_gpu,
+            vram_gb=self.hardware.vram_gb,
+            gpu_name=self.hardware.gpu_name or "",
         )
         ttl = cfg.mesh.heartbeat_seconds * 3
         self.registry = MeshRegistry(me, ttl=ttl)
@@ -256,6 +260,10 @@ def build_app(cfg: Config) -> FastAPI:
             mesh_models[p.id] = p.models
         return {"local": state.local_models, "mesh": mesh_models,
                 "default": cfg.models.default_model}
+
+    @app.get("/api/hardware")
+    async def api_hardware():
+        return state.hardware.to_dict()
 
     @app.post("/api/chat")
     async def api_chat(req: dict, x_boddos_forwarded: str | None = Header(default=None)):

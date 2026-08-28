@@ -18,6 +18,7 @@ don't control.
 | Area | Status | Notes |
 |------|--------|-------|
 | Distributed mesh across your machines | ✅ core | Nodes discover each other, share load |
+| Hardware auto-detection | ✅ core | CPU/RAM/GPU detected at startup — picks a model tier for you, no guessing |
 | Local LLM advisor ("Assistant") | ✅ core | Ollama-backed, any local model, pluggable |
 | Always-on live conversation | ✅ core | "Hey Ori" wake word → listen → stream → speak |
 | Streaming replies + model pulling | ✅ core | Token-by-token SSE; pull models from the UI |
@@ -100,6 +101,31 @@ See [`docs/USAGE.md`](docs/USAGE.md) for how to use Ori across all your devices,
 [`docs/DEPLOY.md`](docs/DEPLOY.md) for the full 3-machine + ESP32 setup, and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the pieces fit.
 
+## Adding a second machine
+
+Run the installer on the new machine too, then point each node's
+`mesh.peers` at the other's `advertise_url` with a matching `mesh.psk`:
+
+```yaml
+# machine A's config/boddos.yaml
+mesh:
+  psk: "same-secret-on-both"
+  peers: ["http://machine-b-ip:8787"]
+
+# machine B's config/boddos.yaml
+mesh:
+  psk: "same-secret-on-both"
+  peers: ["http://machine-a-ip:8787"]
+```
+
+Within one heartbeat interval (`mesh.heartbeat_seconds`, default 10s) each
+node shows up in the other's registry — visible live in Orunmila's mesh
+panel, or via `GET /mesh/nodes` — with its auto-detected RAM/GPU and
+whatever models it has pulled. `/api/chat` already routes a request to
+whichever peer actually has the requested model. For machines that aren't
+on the same LAN, put [Headscale](https://github.com/juanfont/headscale) (or
+Tailscale) between them first so `advertise_url` is reachable at all.
+
 ## New frontend: the Orun shell
 
 `frontend/` is a from-scratch React + Three.js UI: a persistent, draggable
@@ -108,8 +134,10 @@ that vibrates with your mic while you talk and with the assistant's reply
 while it speaks, plus three sections wired to real backend tools:
 
 - **Orunmila** — chat (`/api/chat/stream`), continuous "hey ori" wake-word
-  voice loop, and a screen-control panel (screenshot → local vision model →
-  click, gated behind `screen.enabled` + a per-click confirm).
+  voice loop, a screen-control panel (screenshot → local vision model →
+  click, gated behind `screen.enabled` + a per-click confirm), and a mesh
+  panel showing this machine's auto-detected hardware plus every peer node
+  and its specs, live.
 - **Esu Pathfinder** — turn-by-turn directions on a Leaflet/OSM map
   (Nominatim + OSRM) and a camera "lookout" that describes hazards via the
   local vision model.
