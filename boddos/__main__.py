@@ -20,7 +20,28 @@ def main(argv: list[str] | None = None) -> int:
                         help="generate a TOTP 2FA secret + provisioning URI, then exit")
     parser.add_argument("--new-vapid", action="store_true",
                         help="generate Web Push VAPID keys for services.push, then exit")
+    parser.add_argument("--join-code", action="store_true",
+                        help="print a one-line token + command a second machine can use to "
+                             "join this node's mesh with zero manual config editing, then exit")
     args = parser.parse_args(argv)
+
+    if args.join_code:
+        from .join import encode
+        try:
+            cfg = load_config(args.config)
+        except FileNotFoundError:
+            print(f"config not found: {args.config}\n"
+                  f"Copy config/boddos.example.yaml and edit it, or run this once the node "
+                  f"has been installed.", file=sys.stderr)
+            return 2
+        peer = cfg.node.advertise_url or f"http://<this-machine-ip>:{cfg.node.bind_port}"
+        token = encode(cfg.mesh.psk, peer)
+        print("On the machine you want to add, run the same install one-liner you used here,")
+        print("with this token in front of it — it joins this node's mesh automatically:\n")
+        print(f"  BODDOS_JOIN={token} \\")
+        print("  curl -fsSL <the install.sh URL you used> | bash -s -- --join $BODDOS_JOIN\n")
+        print("(or, from an existing clone: BODDOS_JOIN=" + token + " ./install.sh)")
+        return 0
 
     if args.new_totp:
         from .security import totp
