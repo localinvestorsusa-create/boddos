@@ -52,6 +52,8 @@ class OgunCfg(BaseModel):
     max_source_chars: int = 20000
     render_timeout_s: float = 25.0
     chemistry_mechanism: str = "gri30.yaml"
+    # Free key from materialsproject.org/api — falls back to $MP_API_KEY.
+    materials_api_key: str = ""
 
 
 class ScreenCfg(BaseModel):

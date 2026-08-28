@@ -22,7 +22,7 @@ from ..config import Config
 from ..models import OllamaProvider
 from ..models.base import ChatMessage
 from ..agent import OSAgent, ScreenAgent, fetch_url
-from ..ogun import CadStudio, ChemLab, CircuitLab
+from ..ogun import CadStudio, ChemLab, CircuitLab, StructuresLab, AerospaceLab, BioLab, MaterialsLab
 from ..services import (
     get_forecast, translate_to_english, DroneAdapter, CallingAdapter, geocode, route, directions,
 )
@@ -72,6 +72,10 @@ class NodeState:
         self.cad = CadStudio(cfg.ogun)
         self.chem = ChemLab(cfg.ogun)
         self.circuits = CircuitLab(cfg.ogun)
+        self.structures = StructuresLab(cfg.ogun)
+        self.aerospace = AerospaceLab(cfg.ogun)
+        self.bio = BioLab(cfg.ogun)
+        self.materials = MaterialsLab(cfg.ogun)
         self.drone = DroneAdapter(cfg.services.drone)
         self.calling = CallingAdapter(cfg.services.calling)
         self.notifier = Notifier(cfg.services.notify)
@@ -477,6 +481,61 @@ def build_app(cfg: Config) -> FastAPI:
             float(req.get("end_ms", 5.0)),
         )
         state.audit.record("ogun.circuit", {"ok": res.ok, "components": len(req.get("components", []))})
+        return res.to_dict()
+
+    @app.post("/api/ogun/beam")
+    async def api_ogun_beam(req: dict):
+        try:
+            res = await state.structures.cantilever_beam(
+                float(req["length_m"]), float(req["width_m"]), float(req["height_m"]),
+                float(req["tip_force_n"]), req.get("material", "aluminum"),
+                req.get("youngs_pa"), req.get("poisson"),
+                int(req.get("elements_along_length", 20)),
+            )
+        except (KeyError, TypeError, ValueError) as e:
+            return {"ok": False, "error": f"bad beam description: {e}"}
+        state.audit.record("ogun.beam", {"ok": res.ok, "material": req.get("material")})
+        return res.to_dict()
+
+    @app.post("/api/ogun/rocket")
+    async def api_ogun_rocket(req: dict):
+        try:
+            res = state.aerospace.rocket_flight(
+                float(req["total_impulse_ns"]), float(req["burn_time_s"]),
+                float(req["propellant_mass_kg"]), float(req["rocket_dry_mass_kg"]),
+                float(req["rocket_radius_m"]),
+                motor_dry_mass_kg=float(req.get("motor_dry_mass_kg", 1.0)),
+                drag_coefficient=float(req.get("drag_coefficient", 0.5)),
+                fin_count=int(req.get("fin_count", 4)),
+                rail_length_m=float(req.get("rail_length_m", 2.0)),
+                inclination_deg=float(req.get("inclination_deg", 85.0)),
+            )
+        except (KeyError, TypeError, ValueError) as e:
+            return {"ok": False, "error": f"bad rocket description: {e}"}
+        state.audit.record("ogun.rocket", {"ok": res.ok})
+        return res.to_dict()
+
+    @app.post("/api/ogun/sequence")
+    async def api_ogun_sequence(req: dict):
+        res = state.bio.sequence_report(req.get("sequence", ""))
+        state.audit.record("ogun.sequence", {"ok": res.ok, "kind": res.kind})
+        return res.to_dict()
+
+    @app.post("/api/ogun/dynamics")
+    async def api_ogun_dynamics(req: dict):
+        res = state.bio.particle_chain_dynamics(
+            int(req.get("particle_count", 8)),
+            float(req.get("bond_length_nm", 0.15)),
+            float(req.get("bond_strength", 500.0)),
+            int(req.get("steps", 2000)),
+        )
+        state.audit.record("ogun.dynamics", {"ok": res.ok})
+        return res.to_dict()
+
+    @app.post("/api/ogun/material")
+    async def api_ogun_material(req: dict):
+        res = state.materials.search_by_formula(req.get("formula", ""), int(req.get("limit", 5)))
+        state.audit.record("ogun.material", {"ok": res.ok, "formula": req.get("formula")})
         return res.to_dict()
 
     @app.post("/api/drone")

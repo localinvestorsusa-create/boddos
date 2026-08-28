@@ -124,6 +124,120 @@ export interface CircuitResult {
   traces: Record<string, number[]>;
 }
 
+export interface BeamResult {
+  ok: boolean;
+  error?: string;
+  tip_deflection_m: number;
+  analytical_deflection_m: number;
+  agreement_pct: number;
+  max_stress_note?: string;
+  nodes: number;
+  elements: number;
+}
+
+export async function simulateBeam(
+  lengthM: number,
+  widthM: number,
+  heightM: number,
+  tipForceN: number,
+  material: string,
+): Promise<BeamResult> {
+  const res = await fetch('/api/ogun/beam', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ length_m: lengthM, width_m: widthM, height_m: heightM, tip_force_n: tipForceN, material }),
+  });
+  return res.json();
+}
+
+export interface RocketResult {
+  ok: boolean;
+  error?: string;
+  apogee_m: number;
+  max_speed_ms: number;
+  max_acceleration_ms2: number;
+  time_to_apogee_s: number;
+  warnings: string[];
+}
+
+export async function simulateRocket(params: {
+  total_impulse_ns: number;
+  burn_time_s: number;
+  propellant_mass_kg: number;
+  rocket_dry_mass_kg: number;
+  rocket_radius_m: number;
+}): Promise<RocketResult> {
+  const res = await fetch('/api/ogun/rocket', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  return res.json();
+}
+
+export interface SequenceResult {
+  ok: boolean;
+  error?: string;
+  kind: string;
+  length: number;
+  gc_fraction?: number;
+  molecular_weight_da?: number;
+  translated_protein?: string;
+  protein_molecular_weight_da?: number;
+  instability_index?: number;
+  aromaticity?: number;
+}
+
+export async function analyzeSequence(sequence: string): Promise<SequenceResult> {
+  const res = await fetch('/api/ogun/sequence', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sequence }),
+  });
+  return res.json();
+}
+
+export interface DynamicsResult {
+  ok: boolean;
+  error?: string;
+  platform: string;
+  energy_kj_mol: number[];
+  max_energy_drift_pct: number;
+}
+
+export async function runParticleDynamics(particleCount: number): Promise<DynamicsResult> {
+  const res = await fetch('/api/ogun/dynamics', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ particle_count: particleCount, steps: 1500 }),
+  });
+  return res.json();
+}
+
+export interface MaterialMatch {
+  material_id: string;
+  formula: string;
+  density_g_cm3: number | null;
+  band_gap_ev: number | null;
+  energy_above_hull_ev: number | null;
+  crystal_system: string | null;
+}
+
+export interface MaterialResult {
+  ok: boolean;
+  error?: string;
+  matches: MaterialMatch[];
+}
+
+export async function lookupMaterial(formula: string): Promise<MaterialResult> {
+  const res = await fetch('/api/ogun/material', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ formula }),
+  });
+  return res.json();
+}
+
 export async function simulateCircuit(
   components: CircuitComponent[],
   volts: number,

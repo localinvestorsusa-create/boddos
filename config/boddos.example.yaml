@@ -70,6 +70,9 @@ ogun:
   max_source_chars: 20000
   render_timeout_s: 25.0
   chemistry_mechanism: "gri30.yaml"
+  # Free key from materialsproject.org/api — falls back to $MP_API_KEY.
+  # Material lookup fails cleanly with no key configured; nothing else here needs one.
+  materials_api_key: ""
 
 services:
   weather:

@@ -115,14 +115,18 @@ while it speaks, plus three sections wired to real backend tools:
   local vision model.
 - **Ogun 3D** — describe a part and get real OpenSCAD + a rendered STL
   preview; check a combustion mixture with Cantera; sketch an RC/RL/RLC
-  circuit and simulate it with ngspice.
+  circuit and simulate it with ngspice; solve a cantilever beam with
+  CalculiX (cross-checked against closed-form beam theory); fly a rocket
+  with RocketPy; read a DNA/protein sequence or run a toy molecular
+  dynamics simulation with Biopython/OpenMM; look up real material
+  properties via the Materials Project (needs a free API key).
 
 It talks to the same backend above over `/api`, proxied in dev.
 
 ```bash
 # system deps for screen control + Ogun 3D (optional — each section
 # degrades to a clear "disabled"/"unavailable" message without these)
-apt install openscad xvfb ngspice libngspice0-dev
+apt install openscad xvfb ngspice libngspice0-dev calculix-ccx
 pip install -e ".[screen,ogun]"
 
 # terminal 1 — backend

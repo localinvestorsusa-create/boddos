@@ -184,3 +184,60 @@
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
 }
+
+/* ---- beam / rocket forms ---- */
+.beam-form { align-items: flex-end; }
+.beam-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+  min-width: 6.5rem;
+  flex: 1;
+}
+.beam-form input, .beam-form select {
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 0.5rem;
+  color: var(--ink);
+  padding: 0.5rem 0.65rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85rem;
+}
+.beam-form button {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+.beam-form button:disabled { opacity: 0.45; }
+
+.beam-result {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+.beam-stat { display: flex; flex-direction: column; gap: 0.2rem; }
+.beam-stat strong { font-size: 1.15rem; color: var(--accent); }
+.beam-stat span { font-size: 0.78rem; color: var(--ink-dim); }
+
+/* ---- materials ---- */
+.component-list { list-style: none; margin: 1rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.material-row {
+  display: grid;
+  grid-template-columns: 1fr 8rem 6rem 8rem;
+  gap: 0.8rem;
+  align-items: baseline;
+  background: var(--surface-2);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.85rem;
+}
+.material-row span { color: var(--ink-dim); font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; }
+.component-list li.empty { color: var(--ink-dim); text-align: center; padding: 0.6rem; }

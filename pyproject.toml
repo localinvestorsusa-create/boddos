@@ -22,7 +22,10 @@ dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "respx>=0.20"]
 push = ["pywebpush>=1.14"]
 mavlink = ["pymavlink>=2.4"]
 screen = ["pyautogui>=0.9.54"]
-ogun = ["cantera>=3.0", "PySpice>=1.5"]
+ogun = [
+    "cantera>=3.0", "PySpice>=1.5", "rocketpy>=1.0",
+    "openmm>=8.0", "biopython>=1.83", "mp-api>=0.41",
+]
 
 [project.scripts]
 boddos = "boddos.__main__:main"
