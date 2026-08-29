@@ -593,3 +593,165 @@ export async function streamChat(
     clearTimeout(timeoutId);
   }
 }
+
+// ----------------------------- smart home -----------------------------
+
+export interface SmartDevice {
+  ip: string;
+  alias: string;
+  model: string;
+  is_on: boolean;
+  device_type: string;
+  is_dimmable: boolean;
+  brightness: number | null;
+  is_color: boolean;
+  hsv: [number, number, number] | null;
+}
+
+export interface SmartHomeDiscoverResult {
+  ok: boolean;
+  error?: string;
+  devices: SmartDevice[];
+}
+
+export async function discoverSmartDevices(): Promise<SmartHomeDiscoverResult> {
+  const res = await fetch('/api/smarthome/discover');
+  return res.json();
+}
+
+export interface ControlResult {
+  ok: boolean;
+  error?: string;
+}
+
+export async function controlSmartDevice(
+  ip: string,
+  action: 'on' | 'off' | 'brightness' | 'color',
+  params: { level?: number; hue?: number; saturation?: number; value?: number } = {},
+): Promise<ControlResult> {
+  const res = await fetch('/api/smarthome/control', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ip, action, ...params }),
+  });
+  return res.json();
+}
+
+// -------------------------------- planner --------------------------------
+
+export interface PlannerEvent {
+  id: string;
+  title: string;
+  start_time: string;
+  end_time: string;
+  category: string;
+  description: string;
+}
+
+export interface Alarm {
+  id: string;
+  time: string;
+  label: string;
+  enabled: boolean;
+}
+
+export interface PlannerTask {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
+export async function fetchEvents(date?: string): Promise<PlannerEvent[]> {
+  const url = date ? `/api/planner/events?date=${encodeURIComponent(date)}` : '/api/planner/events';
+  const res = await fetch(url);
+  const data = await res.json();
+  return data.events;
+}
+
+export async function addEvent(
+  title: string, start_time: string, end_time: string, category = 'general', description = '',
+): Promise<PlannerEvent> {
+  const res = await fetch('/api/planner/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, start_time, end_time, category, description }),
+  });
+  return res.json();
+}
+
+export async function deleteEvent(id: string): Promise<{ ok: boolean }> {
+  const res = await fetch(`/api/planner/events/${id}`, { method: 'DELETE' });
+  return res.json();
+}
+
+export async function fetchAlarms(): Promise<Alarm[]> {
+  const res = await fetch('/api/planner/alarms');
+  const data = await res.json();
+  return data.alarms;
+}
+
+export async function addAlarm(time: string, label = ''): Promise<Alarm> {
+  const res = await fetch('/api/planner/alarms', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ time, label }),
+  });
+  return res.json();
+}
+
+export async function deleteAlarm(id: string): Promise<{ ok: boolean }> {
+  const res = await fetch(`/api/planner/alarms/${id}`, { method: 'DELETE' });
+  return res.json();
+}
+
+export async function fetchTasks(): Promise<PlannerTask[]> {
+  const res = await fetch('/api/planner/tasks');
+  const data = await res.json();
+  return data.tasks;
+}
+
+export async function addTask(text: string): Promise<PlannerTask> {
+  const res = await fetch('/api/planner/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+  return res.json();
+}
+
+export async function toggleTask(id: string, completed: boolean): Promise<{ ok: boolean }> {
+  const res = await fetch(`/api/planner/tasks/${id}/toggle`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ completed }),
+  });
+  return res.json();
+}
+
+export async function deleteTask(id: string): Promise<{ ok: boolean }> {
+  const res = await fetch(`/api/planner/tasks/${id}`, { method: 'DELETE' });
+  return res.json();
+}
+
+// --------------------------------- news ---------------------------------
+
+export interface Headline {
+  title: string;
+  source: string;
+  date: string;
+  category: string;
+  url: string;
+  image: string | null;
+}
+
+export interface BriefingResult {
+  ok: boolean;
+  error?: string;
+  curated: boolean;
+  headlines: Headline[];
+}
+
+export async function fetchBriefing(useAi = true): Promise<BriefingResult> {
+  const res = await fetch(`/api/news/briefing?use_ai=${useAi ? 'true' : 'false'}`);
+  return res.json();
+}

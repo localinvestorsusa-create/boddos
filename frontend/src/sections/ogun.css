@@ -419,3 +419,45 @@
   font-family: 'IBM Plex Mono', monospace;
 }
 .skill-run-btn { align-self: flex-start; }
+
+/* ---- home automation ---- */
+.home-device-row { align-items: center; }
+.home-device-controls { display: flex; align-items: center; gap: 0.7rem; }
+.home-brightness { accent-color: var(--accent); width: 6rem; }
+.home-power-btn {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  color: var(--ink-dim);
+  border-radius: 999px;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.home-power-btn.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+/* ---- planner ---- */
+.planner-tab-body { margin-top: 0.8rem; }
+.planner-list { margin-top: 0.8rem; }
+.planner-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  grid-template-columns: unset;
+}
+.planner-row > div { display: flex; flex-direction: column; gap: 0.1rem; }
+.planner-check { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; }
+.planner-check input { accent-color: var(--accent); width: 1rem; height: 1rem; }
+.planner-check span.done { text-decoration: line-through; color: var(--ink-dim); }
+.timer-done { color: var(--accent); }
+
+/* ---- briefing ---- */
+.briefing-group { margin-top: 1rem; }
+.briefing-category {
+  margin: 0 0 0.4rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-dim);
+}
+.briefing-row a { color: var(--ink); text-decoration: none; }
+.briefing-row a:hover { color: var(--accent); }

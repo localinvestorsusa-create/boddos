@@ -46,7 +46,7 @@ function getBrowserSpeechRecognition(): any {
 }
 
 export function voiceInputSupported(): boolean {
-  const hasMic = !!(navigator.mediaDevices?.getUserMedia && 'WebSocket' in window);
+  const hasMic = typeof navigator.mediaDevices?.getUserMedia === 'function' && 'WebSocket' in window;
   return hasMic || !!getBrowserSpeechRecognition();
 }
 
@@ -122,7 +122,7 @@ export class VoiceController {
   // ------------------------- Vosk over WebSocket -------------------------
 
   private async startVosk(): Promise<boolean> {
-    if (!navigator.mediaDevices?.getUserMedia || !('WebSocket' in window)) return false;
+    if (typeof navigator.mediaDevices?.getUserMedia !== 'function' || !('WebSocket' in window)) return false;
 
     try {
       this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });

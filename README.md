@@ -42,6 +42,9 @@ don't control.
 | TOTP 2FA | ✅ security | Second factor on agent / drone / vault actions |
 | Drone control (your drones) | ✅ adapter | Real MAVLink backend (`boddos[mavlink]`) + queue fallback |
 | Calling | 🔌 adapter | Provider stub |
+| Smart home (TP-Link Kasa) | ✅ core | Discover + control lights/plugs on your own LAN — `boddos[smarthome]` |
+| Planner (calendar / alarms / tasks) | ✅ core | Local SQLite, no cloud calendar account |
+| Daily news briefing | ✅ core | DuckDuckGo headlines, curated by your local model — `boddos[news]` |
 
 ## What it does NOT do
 

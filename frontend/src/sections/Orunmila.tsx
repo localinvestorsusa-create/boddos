@@ -7,17 +7,23 @@ import MeshPanel from './MeshPanel';
 import FinderPanel from './FinderPanel';
 import SkillPortal from './SkillPortal';
 import MuscleMemoryGrid from './MuscleMemoryGrid';
+import HomeAutomationPanel from './HomeAutomationPanel';
+import PlannerPanel from './PlannerPanel';
+import BriefingPanel from './BriefingPanel';
 import TabNav from './TabNav';
 import './sections.css';
 import './ogun.css';
 
-type SupportTab = 'skills' | 'mesh' | 'finder' | 'screen';
+type SupportTab = 'skills' | 'mesh' | 'finder' | 'screen' | 'home' | 'planner' | 'briefing';
 
 const SUPPORT_TABS: { id: SupportTab; label: string }[] = [
   { id: 'skills', label: 'New wishes' },
   { id: 'mesh', label: 'Mesh' },
   { id: 'finder', label: 'Finder' },
   { id: 'screen', label: 'Screen' },
+  { id: 'home', label: 'Home' },
+  { id: 'planner', label: 'Planner' },
+  { id: 'briefing', label: 'Briefing' },
 ];
 
 interface OrunmilaProps {
@@ -259,6 +265,9 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
       {supportTab === 'mesh' && <MeshPanel />}
       {supportTab === 'finder' && <FinderPanel />}
       {supportTab === 'screen' && <ScreenControl />}
+      {supportTab === 'home' && <HomeAutomationPanel />}
+      {supportTab === 'planner' && <PlannerPanel />}
+      {supportTab === 'briefing' && <BriefingPanel />}
     </div>
   );
 }
