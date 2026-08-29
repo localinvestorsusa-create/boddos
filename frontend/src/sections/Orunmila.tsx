@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { fetchUiConfig, streamChat, type ChatMessage, type ToolActivity, type UiConfig } from '../api';
-import { speak, type MicLevel, type PulseLevel } from '../orun/audio';
+import { fetchUiConfig, speakBackend, streamChat, type ChatMessage, type ToolActivity, type UiConfig } from '../api';
+import { playAudio, speak, type MicLevel, type PulseLevel } from '../orun/audio';
 import { VoiceController, speechRecognitionSupported, type VoiceMode } from '../orun/voice';
 import ScreenControl from './ScreenControl';
 import MeshPanel from './MeshPanel';
@@ -48,6 +48,7 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
   const [busy, setBusy] = useState(false);
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('off');
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [ttsNotice, setTtsNotice] = useState<string | null>(null);
   const [skillsVersion, setSkillsVersion] = useState(0);
   const [supportTab, setSupportTab] = useState<SupportTab>('skills');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -101,7 +102,18 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
           });
         },
       );
-      speak(full, () => replyLevel.bump(0.4));
+      speakBackend(full, config?.tts_voice)
+        .then((bytes) => {
+          setTtsNotice(null);
+          return playAudio(bytes, replyLevel);
+        })
+        .catch((e) => {
+          setTtsNotice(
+            `Using the browser's built-in voice — Piper isn't set up on the backend yet (${e}). ` +
+              'See README.md "Natural voice replies" for the one-time setup.',
+          );
+          speak(full, () => replyLevel.bump(0.4));
+        });
     } catch (e) {
       setTurns((prev) => {
         const next = [...prev];
@@ -216,6 +228,7 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
           </button>
         </form>
         {voiceError && <p className="section-warn voice-error">{voiceError}</p>}
+        {ttsNotice && <p className="section-warn voice-error">{ttsNotice}</p>}
       </div>
 
       <TabNav tabs={SUPPORT_TABS} active={supportTab} onChange={(id) => setSupportTab(id as SupportTab)} />

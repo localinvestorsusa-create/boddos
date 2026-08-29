@@ -247,6 +247,34 @@ proxy in `frontend/vite.config.ts` expects it on 8000, so pass `--port 8000`
 or edit the proxy target to match. The old `boddos/ui/` PWA still works
 unchanged and is still served at `/` by the backend directly.
 
+### Natural voice replies (Piper)
+
+Same philosophy as every Ogun lab: the local chat model only decides *what*
+to say — a real, external, open-source engine is the "muscle" that makes it
+actually sound like something (`boddos/voice/tts.py`). Out of the box Ori
+falls back to your browser's flat default voice; this swaps that for
+[Piper](https://github.com/OHF-voice/piper1-gpl), a neural TTS engine that
+runs in real time on CPU with no GPU required — a good fit even on a
+low-RAM machine, since it's a completely separate process from the chat
+model.
+
+```bash
+pip install -e ".[voice]"
+
+# pick a voice (samples in the piper1-gpl repo above), then fetch it once —
+# downloads <name>.onnx + <name>.onnx.json into voices_dir:
+python -m piper.download_voices en_US-amy-medium --download-dir ~/.boddos/voices
+```
+
+That's it — no config edit needed if you're happy with the default voice
+(`voice.tts_voice: "en_US-amy-medium"`, matching the default above); restart
+the backend and reload the browser tab. Prefer a different voice? List
+options with `python -m piper.download_voices` (no args), download the one
+you want the same way, and set `voice.tts_voice` in `config/boddos.yaml` to
+its name. Until a model is downloaded, the "New wishes" chat panel shows a
+one-line notice and keeps speaking through the browser instead — nothing
+breaks, it just sounds like the default OS voice until you fetch one.
+
 The Ogun 3D engineering labs (chemistry, circuits, structures, aerospace,
 biology, materials) each import their heavy library — Cantera, PySpice,
 RocketPy, OpenMM, Biopython, mp-api — lazily, on first actual use, not at

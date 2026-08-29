@@ -4,6 +4,8 @@ export interface UiConfig {
   greeting: string;
   vision_model: string;
   push_enabled: boolean;
+  tts_enabled: boolean;
+  tts_voice: string;
 }
 
 export interface ChatMessage {
@@ -15,6 +17,31 @@ export async function fetchUiConfig(): Promise<UiConfig> {
   const res = await fetch('/api/ui-config');
   if (!res.ok) throw new Error(`ui-config ${res.status}`);
   return res.json();
+}
+
+/** Synthesizes speech through the backend's Piper voice engine and returns
+ * the raw WAV bytes to play. Throws (with the backend's own explanation,
+ * e.g. "voice model not found — fetch it with ...") when Piper isn't set
+ * up yet on that node — callers should fall back to the browser's own
+ * speechSynthesis in that case, not treat it as fatal. */
+export async function speakBackend(text: string, voice?: string): Promise<ArrayBuffer> {
+  const res = await fetch('/api/voice/speak', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(voice ? { text, voice } : { text }),
+  });
+  const contentType = res.headers.get('content-type') ?? '';
+  if (!res.ok || !contentType.includes('audio')) {
+    let detail = `voice/speak ${res.status}`;
+    try {
+      const data = await res.json();
+      if (data?.error) detail = data.error;
+    } catch {
+      /* not JSON — keep the status-based message */
+    }
+    throw new Error(detail);
+  }
+  return res.arrayBuffer();
 }
 
 export interface HardwareReport {

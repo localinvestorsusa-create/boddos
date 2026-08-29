@@ -47,6 +47,18 @@ models:
   # No ram_gb/has_gpu here to set — the node detects its own CPU/RAM/GPU
   # at startup (see /api/hardware) and uses that for mesh routing instead.
 
+voice:
+  # Spoken replies via Piper (a real neural TTS engine) instead of your
+  # browser's flat default voice. Needs `pip install 'boddos[voice]'` plus
+  # a downloaded voice model — see README.md "Natural voice replies".
+  # Falls back to the browser's own voice automatically if no model is
+  # downloaded yet, so this is safe to leave on before you've set it up.
+  enabled: true
+  # Pick one from https://github.com/OHF-voice/piper1-gpl (voice samples
+  # included), then: `python -m piper.download_voices <name> --download-dir <voices_dir>`
+  tts_voice: "en_US-amy-medium"
+  voices_dir: "~/.boddos/voices"
+
 agent:
   # OS agent runs tasks on THIS machine only. Off by default; opt in per node.
   enabled: false

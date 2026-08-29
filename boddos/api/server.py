@@ -17,7 +17,7 @@ from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .. import hardware
@@ -29,6 +29,7 @@ from ..agent import OSAgent, ScreenAgent, fetch_url
 from ..ogun import CadStudio, ChemLab, CircuitLab, StructuresLab, AerospaceLab, BioLab, MaterialsLab
 from ..skills import SkillPortal
 from ..tools import build_tool_registry
+from ..voice import TTSEngine
 from ..services import (
     get_forecast, translate_to_english, DroneAdapter, CallingAdapter, geocode, route, directions,
     DeviceFinder,
@@ -117,6 +118,7 @@ class NodeState:
         self.bio = BioLab(cfg.ogun)
         self.materials = MaterialsLab(cfg.ogun)
         self.skills = SkillPortal(cfg.skills)
+        self.tts = TTSEngine(cfg.voice)
         self.drone = DroneAdapter(cfg.services.drone)
         self.calling = CallingAdapter(cfg.services.calling)
         self.notifier = Notifier(cfg.services.notify)
@@ -438,6 +440,15 @@ def build_app(cfg: Config) -> FastAPI:
         ok = state.skills.delete_skill(slug)
         state.audit.record("skills.delete", {"ok": ok, "slug": slug})
         return {"ok": ok}
+
+    @app.post("/api/voice/speak")
+    async def api_voice_speak(req: dict):
+        text = req.get("text", "")
+        voice = req.get("voice") or None
+        res = await asyncio.to_thread(state.tts.speak, text, voice)
+        if not res.ok:
+            return JSONResponse({"ok": False, "error": res.error})
+        return Response(content=res.audio_wav, media_type="audio/wav")
 
     @app.post("/api/chat")
     async def api_chat(req: dict, x_boddos_forwarded: str | None = Header(default=None)):
@@ -1076,6 +1087,8 @@ def build_app(cfg: Config) -> FastAPI:
             "greeting": cfg.assistant.greeting,
             "vision_model": cfg.models.vision_model,
             "push_enabled": bool(state.push and state.push.enabled),
+            "tts_enabled": cfg.voice.enabled,
+            "tts_voice": cfg.voice.tts_voice,
         }
 
     @app.get("/")

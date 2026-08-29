@@ -77,6 +77,20 @@ class ScreenCfg(BaseModel):
     require_confirm_for_sensitive: bool = True
 
 
+class VoiceCfg(BaseModel):
+    # Spoken replies via Piper — a real neural TTS engine (boddos/voice/tts.py)
+    # instead of the browser's flat default synthesizer. Same split as every
+    # other Ogun tool: the chat model only decides what to say; Piper is the
+    # external "muscle" that makes it actually sound like something.
+    enabled: bool = True
+    # Piper voice name, e.g. "en_US-amy-medium" — browse voice samples at
+    # https://github.com/OHF-voice/piper1-gpl. Fetch it once with:
+    # `python -m piper.download_voices <name> --download-dir <voices_dir>`
+    tts_voice: str = "en_US-amy-medium"
+    # Where downloaded voice models (<name>.onnx + <name>.onnx.json) live.
+    voices_dir: str = "~/.boddos/voices"
+
+
 class WeatherCfg(BaseModel):
     enabled: bool = True
     lat: float = 0.0
@@ -220,6 +234,7 @@ class Config(BaseModel):
     assistant: AssistantCfg = Field(default_factory=AssistantCfg)
     mesh: MeshCfg = Field(default_factory=MeshCfg)
     models: ModelsCfg = Field(default_factory=ModelsCfg)
+    voice: VoiceCfg = Field(default_factory=VoiceCfg)
     agent: AgentCfg = Field(default_factory=AgentCfg)
     screen: ScreenCfg = Field(default_factory=ScreenCfg)
     ogun: OgunCfg = Field(default_factory=OgunCfg)
