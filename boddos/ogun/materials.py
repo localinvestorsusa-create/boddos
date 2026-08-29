@@ -16,10 +16,16 @@ from dataclasses import dataclass, field
 
 from ..config import OgunCfg
 
-try:
-    from mp_api.client import MPRester
-except ImportError:  # pragma: no cover - exercised via the ok=False path
-    MPRester = None
+
+def _mp_api():
+    """Imported lazily — mp-api pulls in pymatgen, pyarrow, and friends, by
+    far the heaviest import in this codebase, for a lab that's unusable
+    without a personal API key most nodes won't have configured anyway."""
+    try:
+        from mp_api.client import MPRester
+        return MPRester
+    except ImportError:  # pragma: no cover - exercised via the ok=False path
+        return None
 
 
 @dataclass
@@ -42,8 +48,6 @@ class MaterialsLab:
     def search_by_formula(self, formula: str, limit: int = 5) -> MaterialResult:
         if not self.cfg.enabled:
             return MaterialResult(ok=False, error="Ogun 3D disabled on this node (set ogun.enabled: true)")
-        if MPRester is None:
-            return MaterialResult(ok=False, error="mp-api not installed (pip install 'boddos[ogun]')")
         if not formula.strip():
             return MaterialResult(ok=False, error="empty formula")
         api_key = self._api_key()
@@ -52,6 +56,11 @@ class MaterialsLab:
                 "no Materials Project API key configured — get a free key at "
                 "materialsproject.org/api and set ogun.materials_api_key or $MP_API_KEY"
             ))
+        # Only pay mp-api's heavy import (pymatgen, pyarrow, ...) once a key
+        # is actually configured — most nodes never set one.
+        MPRester = _mp_api()
+        if MPRester is None:
+            return MaterialResult(ok=False, error="mp-api not installed (pip install 'boddos[ogun]')")
 
         try:
             with MPRester(api_key=api_key) as mpr:

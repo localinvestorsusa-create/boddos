@@ -12,10 +12,17 @@ from dataclasses import dataclass, field
 
 from ..config import OgunCfg
 
-try:
-    import cantera as ct
-except ImportError:  # pragma: no cover - exercised via the ok=False path
-    ct = None
+
+def _cantera():
+    """Imported lazily, not at module load — cantera pulls in a large
+    compiled reaction-mechanism library, and importing it eagerly for
+    every node adds real seconds to server startup whether or not this
+    lab is ever used."""
+    try:
+        import cantera as ct
+        return ct
+    except ImportError:  # pragma: no cover - exercised via the ok=False path
+        return None
 
 
 @dataclass
@@ -39,6 +46,7 @@ class ChemLab:
         """`mixture` is a Cantera mole-fraction string, e.g. 'CH4:1, O2:2, N2:7.52'."""
         if not self.cfg.enabled:
             return CombustionResult(ok=False, error="Ogun 3D disabled on this node (set ogun.enabled: true)")
+        ct = _cantera()
         if ct is None:
             return CombustionResult(ok=False, error="cantera not installed (pip install 'boddos[ogun]')")
         if not mixture.strip():

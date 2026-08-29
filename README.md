@@ -86,12 +86,24 @@ irm https://raw.githubusercontent.com/localinvestorsusa-create/boddos/claude/del
 **Phone, tablet, smart glasses:** no download — open the running node's URL in the
 browser and **Add to Home Screen**. It installs as an app (that's the PWA).
 
-Manual, if you prefer:
+Manual, if you prefer (macOS/Linux):
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 cp config/boddos.example.yaml config/boddos.yaml   # edit peers + trusted contacts
+python -m boddos --config config/boddos.yaml
+```
+
+Windows (PowerShell) — same steps, different syntax: no `&&` (use separate
+lines or `;`), `.venv\Scripts\Activate.ps1` instead of `source ...`, and
+`config/boddos.yaml` gets created for you on first run if you skip the
+`copy` step:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -e .
 python -m boddos --config config/boddos.yaml
 ```
 
@@ -200,7 +212,8 @@ before acting, regardless of speed — see `is_sensitive()` in
 ```bash
 # system deps for screen control, Ogun 3D, the device finder, and the
 # skill portal (optional — each section degrades to a clear
-# "disabled"/"unavailable" message without these)
+# "disabled"/"unavailable" message without these). macOS: brew install
+# equivalents, formula names may differ — check `brew search <name>`.
 apt install openscad xvfb ngspice libngspice0-dev calculix-ccx bluez git
 npm install -g repomix   # or rely on `npx repomix`, which fetches it on first use
 pip install -e ".[screen,ogun,finder,skills]"
@@ -208,11 +221,21 @@ pip install -e ".[screen,ogun,finder,skills]"
 # terminal 1 — backend
 python -m boddos --config config/boddos.yaml --port 8000
 
-# terminal 2 — frontend
-cd frontend && npm install && npm run dev   # http://localhost:5173
+# terminal 2 — frontend (Windows: run each line separately, no &&)
+cd frontend
+npm install
+npm run dev   # http://localhost:5173
 ```
 
 The backend's default port is 8787 (see Install above); the frontend dev
 proxy in `frontend/vite.config.ts` expects it on 8000, so pass `--port 8000`
 or edit the proxy target to match. The old `boddos/ui/` PWA still works
 unchanged and is still served at `/` by the backend directly.
+
+The Ogun 3D engineering labs (chemistry, circuits, structures, aerospace,
+biology, materials) each import their heavy library — Cantera, PySpice,
+RocketPy, OpenMM, Biopython, mp-api — lazily, on first actual use, not at
+server startup, so `pip install`ing all of them doesn't slow down every
+node's boot. First use of each lab still pays that one-time import cost,
+which can take a while on a cold cache (Windows especially, if antivirus
+scans each newly-loaded DLL) — that's normal, not a hang.

@@ -20,12 +20,17 @@ from pathlib import Path
 
 from ..config import OgunCfg
 
-try:
-    from PySpice.Spice.Netlist import Circuit
-    from PySpice.Unit import u_V
-except ImportError:  # pragma: no cover - exercised via the ok=False path
-    Circuit = None
-    u_V = None
+
+def _pyspice():
+    """Imported lazily, not at module load — pulling in PySpice for every
+    node's startup, whether or not this lab is ever used, adds real time
+    for no benefit."""
+    try:
+        from PySpice.Spice.Netlist import Circuit
+        from PySpice.Unit import u_V
+        return Circuit, u_V
+    except ImportError:  # pragma: no cover - exercised via the ok=False path
+        return None
 
 _GND_ALIASES = {"0", "gnd", "ground"}
 _COMPONENT_BUILDERS = {"R", "C", "L"}
@@ -54,6 +59,7 @@ class CircuitLab:
 
     def _build_netlist(self, components: list[dict], source: dict,
                        trace_nodes: list[str], step_us: float, end_ms: float) -> str:
+        Circuit, u_V = _pyspice()
         circuit = Circuit("ogun circuit")
         pos, neg = _node(source["node_pos"]), _node(source.get("node_neg", "0"))
         volts = float(source["volts"])
@@ -83,7 +89,7 @@ class CircuitLab:
                        step_us: float = 1.0, end_ms: float = 5.0) -> CircuitResult:
         if not self.cfg.enabled:
             return CircuitResult(ok=False, error="Ogun 3D disabled on this node (set ogun.enabled: true)")
-        if Circuit is None:
+        if _pyspice() is None:
             return CircuitResult(ok=False, error="PySpice not installed (pip install 'boddos[ogun]')")
         if not shutil.which("ngspice"):
             return CircuitResult(ok=False, error="ngspice not installed (apt install ngspice)")

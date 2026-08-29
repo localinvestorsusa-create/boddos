@@ -16,18 +16,27 @@ from dataclasses import dataclass, field
 
 from ..config import OgunCfg
 
-try:
-    from Bio.Seq import Seq
-    from Bio.SeqUtils import gc_fraction, molecular_weight
-    from Bio.SeqUtils.ProtParam import ProteinAnalysis
-except ImportError:  # pragma: no cover - exercised via the ok=False path
-    Seq = None
 
-try:
-    import openmm as mm
-    import openmm.unit as unit
-except ImportError:  # pragma: no cover - exercised via the ok=False path
-    mm = None
+def _biopython():
+    """Imported lazily — see the note on `_rocketpy()` in aerospace.py for
+    why: no reason to pay this import cost at server startup for every
+    node, whether or not this lab is ever used."""
+    try:
+        from Bio.Seq import Seq
+        from Bio.SeqUtils import gc_fraction, molecular_weight
+        from Bio.SeqUtils.ProtParam import ProteinAnalysis
+        return Seq, gc_fraction, molecular_weight, ProteinAnalysis
+    except ImportError:  # pragma: no cover - exercised via the ok=False path
+        return None
+
+
+def _openmm():
+    try:
+        import openmm as mm
+        import openmm.unit as unit
+        return mm, unit
+    except ImportError:  # pragma: no cover - exercised via the ok=False path
+        return None
 
 _VALID_BASES = set("ACGTUacgtu")
 
@@ -68,8 +77,10 @@ class BioLab:
     def sequence_report(self, sequence: str) -> SequenceResult:
         if not self.cfg.enabled:
             return SequenceResult(ok=False, error="Ogun 3D disabled on this node (set ogun.enabled: true)")
-        if Seq is None:
+        mods = _biopython()
+        if mods is None:
             return SequenceResult(ok=False, error="biopython not installed (pip install 'boddos[ogun]')")
+        Seq, gc_fraction, molecular_weight, ProteinAnalysis = mods
         clean = sequence.strip().upper()
         if not clean:
             return SequenceResult(ok=False, error="empty sequence")
@@ -110,8 +121,10 @@ class BioLab:
     ) -> DynamicsResult:
         if not self.cfg.enabled:
             return DynamicsResult(ok=False, error="Ogun 3D disabled on this node (set ogun.enabled: true)")
-        if mm is None:
+        mods = _openmm()
+        if mods is None:
             return DynamicsResult(ok=False, error="openmm not installed (pip install 'boddos[ogun]')")
+        mm, unit = mods
         if particle_count < 2:
             return DynamicsResult(ok=False, error="particle_count must be at least 2")
 

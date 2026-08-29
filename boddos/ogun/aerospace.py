@@ -21,10 +21,16 @@ from dataclasses import dataclass, field
 
 from ..config import OgunCfg
 
-try:
-    from rocketpy import Environment, Flight, GenericMotor, Rocket
-except ImportError:  # pragma: no cover - exercised via the ok=False path
-    Environment = None
+
+def _rocketpy():
+    """Imported lazily — RocketPy pulls in scipy, which is slow to import
+    (especially cold, on Windows) and would otherwise add real seconds to
+    every node's startup whether or not this lab is ever used."""
+    try:
+        from rocketpy import Environment, Flight, GenericMotor, Rocket
+        return Environment, Flight, GenericMotor, Rocket
+    except ImportError:  # pragma: no cover - exercised via the ok=False path
+        return None
 
 
 @dataclass
@@ -64,8 +70,10 @@ class AerospaceLab:
     ) -> RocketFlightResult:
         if not self.cfg.enabled:
             return RocketFlightResult(ok=False, error="Ogun 3D disabled on this node (set ogun.enabled: true)")
-        if Environment is None:
+        mods = _rocketpy()
+        if mods is None:
             return RocketFlightResult(ok=False, error="rocketpy not installed (pip install 'boddos[ogun]')")
+        Environment, Flight, GenericMotor, Rocket = mods
         if burn_time_s <= 0 or total_impulse_ns <= 0:
             return RocketFlightResult(ok=False, error="total_impulse_ns and burn_time_s must be positive")
         if rocket_radius_m <= 0:
