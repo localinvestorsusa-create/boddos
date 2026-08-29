@@ -104,6 +104,12 @@ def main(argv: list[str] | None = None) -> int:
 
     host = args.host or cfg.node.bind_host
     port = args.port or cfg.node.bind_port
+    # Write CLI overrides back into cfg before build_app constructs this
+    # node's self-advertised URL — otherwise a node started with --port
+    # ends up telling peers (and pairing codes) the config file's stale
+    # bind_port instead of the one it's actually listening on.
+    cfg.node.bind_host = host
+    cfg.node.bind_port = port
     app = build_app(cfg)
 
     ssl_kw = {}

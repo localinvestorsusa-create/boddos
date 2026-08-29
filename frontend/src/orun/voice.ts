@@ -15,7 +15,18 @@ interface VoiceOptions {
   wakeWords: string[];
   onCommand: (text: string) => void;
   onModeChange?: (mode: VoiceMode) => void;
+  /** Fired for errors worth telling the user about — permission denial or
+   * no audio device — not the routine no-speech timeouts a continuous
+   * recognizer hits constantly while just sitting there listening. */
+  onError?: (message: string) => void;
 }
+
+const _ACTIONABLE_ERRORS: Record<string, string> = {
+  'not-allowed': 'Microphone access was denied — allow it in your browser\'s site settings, then click the mic button again.',
+  'service-not-allowed': 'The browser blocked speech recognition for this page — check site permissions.',
+  'audio-capture': 'No microphone found — check it\'s connected and not in use by another app.',
+  network: 'Speech recognition needs a network connection to work (it runs through the browser, not this server) — check your connection.',
+};
 
 function getSpeechRecognition(): any {
   return (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
@@ -83,8 +94,10 @@ export class VoiceController {
         }
       }
     };
-    rec.onerror = () => {
-      /* no-speech / audio-capture errors are routine in continuous mode */
+    rec.onerror = (e: any) => {
+      const message = _ACTIONABLE_ERRORS[e?.error];
+      if (message) this.opts.onError?.(message);
+      /* everything else (no-speech, aborted) is routine in continuous mode */
     };
 
     this.recognition = rec;

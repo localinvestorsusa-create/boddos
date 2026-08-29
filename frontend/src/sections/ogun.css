@@ -272,6 +272,47 @@
 .mesh-node-specs { display: flex; flex-direction: column; align-items: flex-end; gap: 0.15rem; font-size: 0.78rem; color: var(--ink-dim); }
 .mesh-node-list li.empty { color: var(--ink-dim); text-align: center; padding: 0.8rem; font-size: 0.85rem; }
 
+/* ---- mesh pairing ---- */
+.pair-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1.4rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--line);
+}
+@media (max-width: 640px) { .pair-section { grid-template-columns: 1fr; } }
+.pair-col {
+  background: var(--surface-2);
+  border-radius: 0.7rem;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.pair-col h4 { margin: 0; font-size: 0.85rem; color: var(--ink-dim); font-weight: 600; }
+.pair-code-display { display: flex; flex-direction: column; gap: 0.35rem; }
+.pair-code {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+.pair-code-addr { font-size: 0.8rem; color: var(--ink-dim); }
+.pair-code-hint { font-size: 0.74rem; color: var(--ink-dim); line-height: 1.4; }
+.pair-code-refresh { align-self: flex-start; margin-top: 0.2rem; }
+.pair-connect-form { display: flex; flex-direction: column; gap: 0.5rem; }
+.pair-connect-form input {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 0.5rem;
+  color: var(--ink);
+  padding: 0.5rem 0.7rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85rem;
+}
+
 /* ---- device finder ---- */
 .finder-scan-btn, .finder-track-btn, .finder-stop-btn {
   background: var(--accent);

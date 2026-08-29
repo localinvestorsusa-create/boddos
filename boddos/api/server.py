@@ -10,6 +10,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import secrets
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -19,6 +21,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .. import hardware
+from ..netutil import detect_lan_ip
 from ..config import Config
 from ..models import OllamaProvider
 from ..models.base import ChatMessage
@@ -65,7 +68,14 @@ def advisor_system(name: str) -> str:
     )
 
 # Paths reachable without a client token (so the UI can load and prompt for one).
-_AUTH_EXEMPT_PREFIXES = ("/health", "/ui", "/manifest", "/sw.js", "/api/ui-config")
+_AUTH_EXEMPT_PREFIXES = (
+    "/health", "/ui", "/manifest", "/sw.js", "/api/ui-config",
+    # A joining node's own backend calls this on the host node before the
+    # two have ever exchanged a client-auth token — the one-time pairing
+    # code itself is the credential here, same trust model as /mesh/hello's
+    # HMAC signing (checked in-handler, not by this middleware).
+    "/api/mesh/pair/claim",
+)
 
 
 class NodeState:
@@ -76,7 +86,11 @@ class NodeState:
             id=cfg.node.id,
             name=cfg.node.name,
             role=cfg.node.role,
-            url=cfg.node.advertise_url or f"http://127.0.0.1:{cfg.node.bind_port}",
+            # 127.0.0.1 always means "myself" to whoever resolves it, so
+            # it's useless as an address a peer could actually reach —
+            # auto-detect this machine's real LAN IP instead of falling
+            # back to a loopback address nobody else can dial.
+            url=cfg.node.advertise_url or f"http://{detect_lan_ip()}:{cfg.node.bind_port}",
             ram_gb=round(self.hardware.ram_gb),
             has_gpu=self.hardware.has_gpu,
             vram_gb=self.hardware.vram_gb,
@@ -116,6 +130,9 @@ class NodeState:
         self.last_surveillance: dict = {"clear": True, "evil_twin_candidates": [], "flagged_devices": []}
         self.bus = EventBus()
         self.local_models: list[str] = []
+        # Short-lived, one-time pairing codes for "click connect on both
+        # machines" mesh joining — see the /api/mesh/pair/* endpoints.
+        self.pending_pairings: dict[str, float] = {}
 
         # --- security ---
         self.mesh_auth = MeshAuth(cfg.mesh.psk)
@@ -161,7 +178,14 @@ def build_app(cfg: Config) -> FastAPI:
         try:
             body, headers = state.signed(state.hello_payload())
             async with httpx.AsyncClient(timeout=5.0) as c:
-                await c.post(f"{peer.rstrip('/')}/mesh/hello", content=body, headers=headers)
+                r = await c.post(f"{peer.rstrip('/')}/mesh/hello", content=body, headers=headers)
+            # mesh_hello's response carries the peer's own hello payload —
+            # register it now instead of waiting for that peer's own next
+            # heartbeat to greet us back. Makes pairing feel instant on
+            # whichever side clicked "Connect", not just the other one.
+            info = r.json().get("me")
+            if info:
+                state.registry.from_hello(info)
         except Exception:
             pass
 
@@ -263,6 +287,89 @@ def build_app(cfg: Config) -> FastAPI:
         event = await _verify_mesh(request)
         await state.bus.publish({**event, "_relayed": True})
         return {"ok": True}
+
+    _PAIR_CODE_TTL_S = 600.0
+
+    def _new_pairing_code() -> str:
+        for _ in range(20):
+            code = f"{secrets.randbelow(1_000_000):06d}"
+            if code not in state.pending_pairings:
+                return code
+        raise RuntimeError("could not allocate a pairing code")  # pragma: no cover
+
+    def _prune_pairings() -> None:
+        now = time.time()
+        expired = [c for c, exp in state.pending_pairings.items() if exp < now]
+        for c in expired:
+            del state.pending_pairings[c]
+
+    @app.post("/api/mesh/pair/start")
+    async def api_mesh_pair_start():
+        """Step 1 of "click connect on both machines": generate a short,
+        one-time code this node will accept for the next 10 minutes. Read
+        it (and this machine's address) off to whoever's joining."""
+        _prune_pairings()
+        code = _new_pairing_code()
+        state.pending_pairings[code] = time.time() + _PAIR_CODE_TTL_S
+        state.audit.record("mesh.pair.start", {"code": code})
+        return {
+            "code": code,
+            "expires_in_s": int(_PAIR_CODE_TTL_S),
+            "my_url": state.registry.me.url,
+            "my_name": cfg.node.name,
+        }
+
+    @app.post("/api/mesh/pair/claim")
+    async def api_mesh_pair_claim(req: dict):
+        """Step 2, called BY the joining node's own backend (not by a
+        person): redeem a code this node issued. One-time use, short TTL —
+        the code itself is the credential, matching the same trust model as
+        the existing join-token/CLI flow (a URL alone reaches this node;
+        the PSK returned here is what actually gates the mesh handshake)."""
+        _prune_pairings()
+        code = str(req.get("code", "")).strip()
+        if code not in state.pending_pairings:
+            return JSONResponse({"ok": False, "error": "unknown or expired code"}, status_code=404)
+        del state.pending_pairings[code]
+        state.audit.record("mesh.pair.claim", {"code": code})
+        return {
+            "ok": True,
+            "psk": cfg.mesh.psk,
+            "peer_url": state.registry.me.url,
+            "name": cfg.node.name,
+        }
+
+    @app.post("/api/mesh/pair/redeem")
+    async def api_mesh_pair_redeem(req: dict):
+        """Step 3, called from THIS node's own UI: given another machine's
+        address and the code shown on its screen, fetch its PSK/URL, adopt
+        them, and greet it immediately instead of waiting for the next
+        heartbeat. Takes effect for this running session; add the peer to
+        config/boddos.yaml by hand to keep it after a restart."""
+        host_url = str(req.get("host_url", "")).strip().rstrip("/")
+        code = str(req.get("code", "")).strip()
+        if not host_url or not code:
+            return {"ok": False, "error": "host_url and code are both required"}
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as c:
+                r = await c.post(f"{host_url}/api/mesh/pair/claim", json={"code": code})
+        except Exception as e:
+            return {"ok": False, "error": f"couldn't reach {host_url}: {e}"}
+        if r.status_code != 200:
+            try:
+                detail = r.json().get("error", r.text)
+            except Exception:
+                detail = r.text
+            return {"ok": False, "error": f"that machine rejected the code: {detail}"}
+        data = r.json()
+        cfg.mesh.psk = data["psk"]
+        state.mesh_auth = MeshAuth(cfg.mesh.psk)
+        peer_url = data["peer_url"]
+        if peer_url not in cfg.mesh.peers:
+            cfg.mesh.peers.append(peer_url)
+        await _greet(peer_url)
+        state.audit.record("mesh.pair.redeem", {"peer_url": peer_url})
+        return {"ok": True, "connected_to": data.get("name") or peer_url, "peer_url": peer_url}
 
     async def _broadcast(event: dict) -> None:
         await state.bus.publish(event)

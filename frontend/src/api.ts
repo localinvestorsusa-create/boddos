@@ -57,6 +57,35 @@ export async function fetchMeshNodes(): Promise<MeshNode[]> {
   return data.nodes;
 }
 
+export interface PairStartResult {
+  code: string;
+  expires_in_s: number;
+  my_url: string;
+  my_name: string;
+}
+
+export async function startPairing(): Promise<PairStartResult> {
+  const res = await fetch('/api/mesh/pair/start', { method: 'POST' });
+  if (!res.ok) throw new Error(`pair/start ${res.status}`);
+  return res.json();
+}
+
+export interface PairRedeemResult {
+  ok: boolean;
+  error?: string;
+  connected_to?: string;
+  peer_url?: string;
+}
+
+export async function redeemPairing(hostUrl: string, code: string): Promise<PairRedeemResult> {
+  const res = await fetch('/api/mesh/pair/redeem', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ host_url: hostUrl, code }),
+  });
+  return res.json();
+}
+
 export interface FoundDevice {
   address: string;
   name: string;

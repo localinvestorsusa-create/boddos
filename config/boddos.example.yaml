@@ -9,8 +9,12 @@ node:
   role: "host"
   bind_host: "0.0.0.0"
   bind_port: 8787
-  # Advertised URL other nodes reach this machine at (LAN IP).
-  advertise_url: "http://192.168.1.10:8787"
+  # Advertised URL other nodes reach this machine at. Leave blank to
+  # auto-detect this machine's real LAN IP at startup (boddos/netutil.py)
+  # — only set this explicitly if auto-detection picks the wrong interface
+  # or you're reaching this node through a different address (e.g. a
+  # Tailscale/Headscale hostname).
+  advertise_url: ""
 
 assistant:
   # What you call your assistant, and the wake phrases that activate it hands-free.

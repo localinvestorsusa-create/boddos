@@ -119,6 +119,8 @@
 }
 .bubble.user p { background: color-mix(in srgb, var(--accent) 20%, var(--surface-2)); }
 
+.voice-error { padding: 0 1.5rem 0.9rem; margin: 0; }
+
 .tool-log {
   list-style: none;
   margin: 0.35rem 0 0;

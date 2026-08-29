@@ -47,6 +47,7 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('off');
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const [skillsVersion, setSkillsVersion] = useState(0);
   const [supportTab, setSupportTab] = useState<SupportTab>('skills');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -127,6 +128,7 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
       wakeWords: config.wake_words,
       onCommand: (text) => sendRef.current(text),
       onModeChange: setVoiceMode,
+      onError: setVoiceError,
     });
     return () => voiceRef.current?.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,7 +140,8 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
       micLevel.stop();
       return;
     }
-    micLevel.start().catch(() => {});
+    setVoiceError(null);
+    micLevel.start().catch((e) => setVoiceError(`Couldn't access the microphone: ${e}`));
     voiceRef.current?.start('wake');
   }
 
@@ -212,6 +215,7 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
             Send
           </button>
         </form>
+        {voiceError && <p className="section-warn voice-error">{voiceError}</p>}
       </div>
 
       <TabNav tabs={SUPPORT_TABS} active={supportTab} onChange={(id) => setSupportTab(id as SupportTab)} />

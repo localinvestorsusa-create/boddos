@@ -115,7 +115,20 @@ See [`docs/USAGE.md`](docs/USAGE.md) for how to use Ori across all your devices,
 
 ## Adding a second machine
 
-One line, no config editing. On the machine that's already running:
+**From the UI (easiest):** open Orunmila's Mesh tab on both machines. On
+one, click **"Get a code for this machine"** — it shows a 6-digit code
+and this machine's auto-detected address. On the other, type that address
+and code into **"connect to another"** and click **Connect**. Both nodes
+adopt a shared `mesh.psk` and show up in each other's live node list
+immediately — no YAML editing, no copying a PSK by hand, no guessing an
+IP. The code is single-use and expires after 10 minutes
+(`/api/mesh/pair/start` + `/api/mesh/pair/redeem` under the hood — see
+`boddos/api/server.py`). This takes effect for the current run; add the
+peer under `mesh.peers` in `config/boddos.yaml` by hand to keep it across
+a restart.
+
+**From the CLI**, the older one-shot token still works too. On the
+machine that's already running:
 
 ```bash
 python -m boddos --config config/boddos.yaml --join-code
@@ -133,13 +146,15 @@ BODDOS_JOIN=bd1.XXXXX curl -fsSL <the install.sh URL you used> | bash -s -- --jo
 (To do it by hand instead: match `mesh.psk` on both nodes and put each
 one's `advertise_url` in the other's `mesh.peers`.)
 
-Within one heartbeat interval (`mesh.heartbeat_seconds`, default 10s) each
-node shows up in the other's registry — visible live in Orunmila's mesh
-panel, or via `GET /mesh/nodes` — with its auto-detected RAM/GPU and
-whatever models it has pulled. `/api/chat` already routes a request to
-whichever peer actually has the requested model. For machines that aren't
-on the same LAN, put [Headscale](https://github.com/juanfont/headscale) (or
-Tailscale) between them first so `advertise_url` is reachable at all.
+Either way, each node shows up in the other's registry — visible live in
+Orunmila's mesh panel, or via `GET /mesh/nodes` — with its auto-detected
+RAM/GPU and whatever models it has pulled. `advertise_url` auto-detects
+this machine's real LAN IP (`boddos/netutil.py`) when left blank, so a
+fresh `boddos.yaml` from the example just works without editing it first.
+`/api/chat` already routes a request to whichever peer actually has the
+requested model. For machines that aren't on the same LAN, put
+[Headscale](https://github.com/juanfont/headscale) (or Tailscale) between
+them first so `advertise_url` is reachable at all.
 
 ## New frontend: the Orun shell
 
