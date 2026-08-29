@@ -134,7 +134,9 @@ Tailscale) between them first so `advertise_url` is reachable at all.
 `frontend/` is a from-scratch React + Three.js UI: a persistent, draggable
 geometric globe (binary strip above its equator, two odu-style strips below)
 that vibrates with your mic while you talk and with the assistant's reply
-while it speaks, plus three sections wired to real backend tools:
+while it speaks, plus three sections wired to real backend tools. Ogun 3D's
+seven labs and Orunmila's five support panels are each a tab strip
+(`TabNav.tsx`) rather than a single long scroll:
 
 - **Orunmila** — chat (`/api/chat/stream`), continuous "hey ori" wake-word
   voice loop, the **skill portal** ("new wishes"): pull a GitHub repo,

@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { OgunGlyph } from './Glyph';
+import TabNav from './TabNav';
 import CadStudio from './CadStudio';
 import ChemLabPanel from './ChemLabPanel';
 import CircuitLabPanel from './CircuitLabPanel';
@@ -9,7 +11,20 @@ import MaterialsPanel from './MaterialsPanel';
 import './sections.css';
 import './ogun.css';
 
+const TABS = [
+  { id: 'model', label: 'Model', Panel: CadStudio },
+  { id: 'chem', label: 'Chemistry', Panel: ChemLabPanel },
+  { id: 'circuits', label: 'Circuits', Panel: CircuitLabPanel },
+  { id: 'structures', label: 'Structures', Panel: StructuresPanel },
+  { id: 'aerospace', label: 'Aerospace', Panel: AerospacePanel },
+  { id: 'obatala', label: 'Living Matter', Panel: ObatalaPanel },
+  { id: 'materials', label: 'Materials', Panel: MaterialsPanel },
+];
+
 export default function Ogun() {
+  const [tab, setTab] = useState('model');
+  const Active = TABS.find((t) => t.id === tab)?.Panel ?? CadStudio;
+
   return (
     <div className="section">
       <header className="section-head">
@@ -24,13 +39,8 @@ export default function Ogun() {
         </p>
       </header>
 
-      <CadStudio />
-      <ChemLabPanel />
-      <CircuitLabPanel />
-      <StructuresPanel />
-      <AerospacePanel />
-      <ObatalaPanel />
-      <MaterialsPanel />
+      <TabNav tabs={TABS} active={tab} onChange={setTab} />
+      <Active />
 
       <div className="tool-groups">
         <div className="tool-group">

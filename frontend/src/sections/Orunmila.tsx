@@ -7,8 +7,18 @@ import MeshPanel from './MeshPanel';
 import FinderPanel from './FinderPanel';
 import SkillPortal from './SkillPortal';
 import MuscleMemoryGrid from './MuscleMemoryGrid';
+import TabNav from './TabNav';
 import './sections.css';
 import './ogun.css';
+
+type SupportTab = 'skills' | 'mesh' | 'finder' | 'screen';
+
+const SUPPORT_TABS: { id: SupportTab; label: string }[] = [
+  { id: 'skills', label: 'New wishes' },
+  { id: 'mesh', label: 'Mesh' },
+  { id: 'finder', label: 'Finder' },
+  { id: 'screen', label: 'Screen' },
+];
 
 interface OrunmilaProps {
   micLevel: MicLevel;
@@ -38,6 +48,7 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
   const [busy, setBusy] = useState(false);
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('off');
   const [skillsVersion, setSkillsVersion] = useState(0);
+  const [supportTab, setSupportTab] = useState<SupportTab>('skills');
   const scrollRef = useRef<HTMLDivElement>(null);
   const voiceRef = useRef<VoiceController | null>(null);
   const sendRef = useRef<(text: string) => void>(() => {});
@@ -203,11 +214,16 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
         </form>
       </div>
 
-      <SkillPortal onSaved={() => setSkillsVersion((v) => v + 1)} />
-      <MuscleMemoryGrid refreshKey={skillsVersion} />
-      <MeshPanel />
-      <FinderPanel />
-      <ScreenControl />
+      <TabNav tabs={SUPPORT_TABS} active={supportTab} onChange={(id) => setSupportTab(id as SupportTab)} />
+      {supportTab === 'skills' && (
+        <>
+          <SkillPortal onSaved={() => setSkillsVersion((v) => v + 1)} />
+          <MuscleMemoryGrid refreshKey={skillsVersion} />
+        </>
+      )}
+      {supportTab === 'mesh' && <MeshPanel />}
+      {supportTab === 'finder' && <FinderPanel />}
+      {supportTab === 'screen' && <ScreenControl />}
     </div>
   );
 }

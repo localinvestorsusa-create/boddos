@@ -36,6 +36,33 @@
   margin: 0;
 }
 
+.tab-nav {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
+  margin: 0 0 1.5rem;
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: thin;
+}
+.tab-btn {
+  flex: none;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-dim);
+  font-family: 'Sora', sans-serif;
+  font-size: 0.86rem;
+  font-weight: 600;
+  padding: 0.55rem 0.2rem;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tab-btn + .tab-btn { margin-left: 1.1rem; }
+.tab-btn:hover { color: var(--ink); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
 .section-warn {
   margin-top: 0.9rem;
   font-size: 0.85rem;
