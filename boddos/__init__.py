@@ -1,7 +1,7 @@
-"""BODDOS — Backbone for On-Device Distributed Operations & Safety.
+"""BODDOS — minimal skeleton.
 
-A private, self-hosted personal AI + safety assistant that runs across your own
-machines and is operated from a phone and an ESP32 sensor node.
+A bare backend + frontend, connected and ready for new instructions.
+Everything that used to be built on top of this has been removed.
 """
 
 __version__ = "0.1.0"

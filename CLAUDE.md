@@ -1,46 +1,25 @@
 # CLAUDE.md — working in the BODDOS repo
 
-BODDOS is a private, self-hosted personal AI + safety assistant that runs as a
-mesh of identical nodes across the user's own machines, operated from a phone
-(PWA) and an ESP32 sensor node. Read `README.md` and `docs/` first.
-
-## Scope boundaries (important)
-
-This project is **defensive** and has hard limits documented in
-`docs/SECURITY.md`. Do **not** add: covert surveillance of other people, remote
-reading of strangers' vitals/emotions, third-party OSINT dossiers, impersonation,
-or physically-impossible sensing claims. New "spy on others" features are out of
-scope; new features that protect the operator are welcome.
-
-## Layout
-
-- `boddos/mesh/` — node identity, peer registry, one-hop model router, event bus
-- `boddos/models/` — local model provider (Ollama) + `ModelProvider` protocol
-- `boddos/agent/` — allowlisted OS agent (own machine) + web fetch
-- `boddos/services/` — weather, translate, drone/calling adapters, `notify.py`
-- `boddos/sensors/` — ESP32/phone reading fusion
-- `boddos/safety/` — duress, deadman, trackers, surveillance, geofence, breach, exposure
-- `boddos/security/` — mesh HMAC signing, client auth, ratelimit, audit, vault, tls, totp
-- `boddos/api/server.py` — FastAPI app factory wiring it all together
-- `boddos/ui/` — phone PWA (vanilla JS, no build step)
-- `firmware/esp32/` — Arduino sensor sketch
-- `deploy/` — systemd unit + launchd plist; `Dockerfile` at root
+BODDOS is currently a minimal skeleton: a bare FastAPI backend and a bare
+Vite/React frontend, connected to each other, with everything previously
+built on top of them removed. Read `README.md` first — it documents the
+whole (small) layout.
 
 ## Conventions
 
 - Python 3.10+, FastAPI, async. Type hints, `from __future__ import annotations`.
-- Mesh-to-mesh calls are HMAC-signed (`security/auth.py`); never send the PSK
-  in a header. Sensitive actions record to the hash-chained audit log and may
-  require TOTP when 2FA is enabled.
-- Keep new features honest about hardware limits and label heuristics as such.
+- Keep the backend/frontend connection (the `/health` round trip, and
+  `frontend/vite.config.ts`'s proxy) working as new features get added —
+  it's the one thing this skeleton exists to preserve.
 
 ## Dev commands
 
 ```bash
 python3 -m venv .venv && . .venv/bin/activate && pip install -e ".[dev]"
 python -m pytest -q            # test suite
-python -m boddos --config config/boddos.yaml   # run a node
-python -m boddos --new-totp    # provision a 2FA secret
+python -m boddos --config config/boddos.yaml --port 8000   # backend
+
+cd frontend && npm install && npm run dev   # frontend, http://localhost:5173
 ```
 
 CI runs `pytest` on 3.10 and 3.12 (`.github/workflows/ci.yml`). Keep it green.
