@@ -27,7 +27,7 @@ def test_detect_never_raises_and_returns_sane_shape():
 def test_recommend_scales_with_available_memory():
     small_model, _, _ = hardware._recommend(2.0)
     big_model, _, _ = hardware._recommend(32.0)
-    assert "1.5b" in small_model or "3b" in small_model
+    assert "1.7b" in small_model or "3b" in small_model
     assert "14b" in big_model
 
 

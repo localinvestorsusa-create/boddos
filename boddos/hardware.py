@@ -100,7 +100,7 @@ _TIERS: list[tuple[float, str, str, str]] = [
     (12.0, "qwen2.5-coder:7b-instruct-q8_0", "llava:7b", "the sweet spot this whole stack is tuned for"),
     (8.0, "qwen2.5-coder:7b-instruct-q4_K_M", "llava:7b", "7B fits at a lower quant — a bit less sharp, still solid"),
     (4.0, "qwen2.5-coder:3b-instruct-q4_K_M", "moondream", "tight — a 3B model and a small vision model"),
-    (0.0, "qwen2.5-coder:1.5b-instruct-q4_K_M", "moondream",
+    (0.0, "qwen3:1.7b", "moondream",
      "very tight — expect a slow, small model; consider adding a mesh peer"),
 ]
 
