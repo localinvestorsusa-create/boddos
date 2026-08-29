@@ -29,7 +29,7 @@ from ..agent import OSAgent, ScreenAgent, fetch_url
 from ..ogun import CadStudio, ChemLab, CircuitLab, StructuresLab, AerospaceLab, BioLab, MaterialsLab
 from ..skills import SkillPortal
 from ..tools import build_tool_registry
-from ..voice import TTSEngine
+from ..voice import TTSEngine, STTEngine, partial_text, final_text
 from ..services import (
     get_forecast, translate_to_english, DroneAdapter, CallingAdapter, geocode, route, directions,
     DeviceFinder,
@@ -119,6 +119,7 @@ class NodeState:
         self.materials = MaterialsLab(cfg.ogun)
         self.skills = SkillPortal(cfg.skills)
         self.tts = TTSEngine(cfg.voice)
+        self.stt = STTEngine(cfg.voice)
         self.drone = DroneAdapter(cfg.services.drone)
         self.calling = CallingAdapter(cfg.services.calling)
         self.notifier = Notifier(cfg.services.notify)
@@ -454,6 +455,45 @@ def build_app(cfg: Config) -> FastAPI:
         if not res.ok:
             return JSONResponse({"ok": False, "error": res.error})
         return Response(content=res.audio_wav, media_type="audio/wav")
+
+    @app.websocket("/ws/voice/stt")
+    async def ws_voice_stt(websocket: WebSocket):
+        """Streams raw 16-bit PCM audio from the browser's own mic capture
+        into a per-connection Vosk recognizer and streams transcripts back
+        as {"partial": ...} / {"final": ...} — see boddos/voice/stt.py and
+        frontend/src/orun/voice.ts. One connection per listening session
+        (opened when voice mode turns on, closed when it turns off), not
+        one per utterance. A model that isn't downloaded yet is reported
+        as one {"error": ...} message so the frontend can fall back to the
+        browser's own SpeechRecognition instead of just going silent."""
+        if state.client_auth.require and not state.client_auth.check(None, websocket.query_params.get("token")):
+            await websocket.close(code=1008)
+            return
+        try:
+            rate = int(websocket.query_params.get("rate", "16000"))
+        except ValueError:
+            rate = 16000
+        await websocket.accept()
+        try:
+            recognizer = await asyncio.to_thread(state.stt.new_recognizer, rate)
+        except Exception as e:
+            await websocket.send_json({"error": str(e)})
+            await websocket.close()
+            return
+        try:
+            while True:
+                data = await websocket.receive_bytes()
+                got_final = await asyncio.to_thread(recognizer.AcceptWaveform, data)
+                if got_final:
+                    text = final_text(recognizer)
+                    if text:
+                        await websocket.send_json({"final": text})
+                else:
+                    partial = partial_text(recognizer)
+                    if partial:
+                        await websocket.send_json({"partial": partial})
+        except WebSocketDisconnect:
+            pass
 
     @app.post("/api/chat")
     async def api_chat(req: dict, x_boddos_forwarded: str | None = Header(default=None)):
@@ -1092,8 +1132,9 @@ def build_app(cfg: Config) -> FastAPI:
             "greeting": cfg.assistant.greeting,
             "vision_model": cfg.models.vision_model,
             "push_enabled": bool(state.push and state.push.enabled),
-            "tts_enabled": cfg.voice.enabled,
+            "tts_enabled": cfg.voice.tts_enabled,
             "tts_voice": cfg.voice.tts_voice,
+            "stt_enabled": cfg.voice.stt_enabled,
         }
 
     @app.get("/")

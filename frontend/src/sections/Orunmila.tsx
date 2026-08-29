@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchUiConfig, speakBackend, streamChat, type ChatMessage, type ToolActivity, type UiConfig } from '../api';
 import { playAudio, speak, type MicLevel, type PulseLevel } from '../orun/audio';
-import { VoiceController, speechRecognitionSupported, type VoiceMode } from '../orun/voice';
+import { VoiceController, voiceInputSupported, type VoiceMode } from '../orun/voice';
 import ScreenControl from './ScreenControl';
 import MeshPanel from './MeshPanel';
 import FinderPanel from './FinderPanel';
@@ -171,8 +171,8 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
   }
 
   const name = config?.assistant_name ?? 'Orunmila';
-  const micLabel = !speechRecognitionSupported()
-    ? '🎙 no browser voice support'
+  const micLabel = !voiceInputSupported()
+    ? '🎙 voice input unavailable in this browser'
     // busy checked before voiceMode: once a command is captured, voiceMode
     // drops straight back to "wake" so it can listen for the next one —
     // without this, the button would silently look idle mid-request.
@@ -232,7 +232,7 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
             onClick={toggleVoice}
             aria-pressed={voiceMode !== 'off'}
             aria-label="Toggle wake-word listening"
-            disabled={!speechRecognitionSupported()}
+            disabled={!voiceInputSupported()}
           >
             {micLabel}
           </button>

@@ -70,8 +70,8 @@ class TTSEngine:
         return voice
 
     def speak(self, text: str, voice_name: str | None = None) -> SpeakResult:
-        if not self.cfg.enabled:
-            return SpeakResult(ok=False, error="voice disabled on this node (set voice.enabled: true)")
+        if not self.cfg.tts_enabled:
+            return SpeakResult(ok=False, error="voice replies disabled on this node (set voice.tts_enabled: true)")
         text = text.strip()
         if not text:
             return SpeakResult(ok=False, error="no text to speak")

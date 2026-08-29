@@ -82,13 +82,25 @@ class VoiceCfg(BaseModel):
     # instead of the browser's flat default synthesizer. Same split as every
     # other Ogun tool: the chat model only decides what to say; Piper is the
     # external "muscle" that makes it actually sound like something.
-    enabled: bool = True
+    tts_enabled: bool = True
     # Piper voice name, e.g. "en_US-amy-medium" — browse voice samples at
     # https://github.com/OHF-voice/piper1-gpl. Fetch it once with:
     # `python -m piper.download_voices <name> --download-dir <voices_dir>`
     tts_voice: str = "en_US-amy-medium"
     # Where downloaded voice models (<name>.onnx + <name>.onnx.json) live.
     voices_dir: str = "~/.boddos/voices"
+
+    # Wake word + command listening via Vosk — a small, fast, fully offline
+    # recognizer (boddos/voice/stt.py) instead of the browser's own
+    # SpeechRecognition API, which on Chrome isn't actually local (it
+    # streams audio to Google's servers) and doesn't exist at all on
+    # Firefox. Same split again: recognition speed never depends on the
+    # chat model. Falls back to the browser API automatically if no model
+    # is downloaded yet.
+    stt_enabled: bool = True
+    # Download a model (~40MB for the small English one) from
+    # https://alphacephei.com/vosk/models and unzip it here.
+    stt_model_dir: str = "~/.boddos/stt/vosk-model-small-en-us-0.15"
 
 
 class WeatherCfg(BaseModel):

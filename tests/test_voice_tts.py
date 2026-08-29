@@ -7,7 +7,7 @@ from boddos.voice.tts import TTSEngine
 
 
 def test_disabled_reports_disabled():
-    engine = TTSEngine(VoiceCfg(enabled=False))
+    engine = TTSEngine(VoiceCfg(tts_enabled=False))
     res = engine.speak("hello there")
     assert not res.ok
     assert "disabled" in res.error

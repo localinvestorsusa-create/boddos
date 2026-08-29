@@ -53,11 +53,21 @@ voice:
   # a downloaded voice model — see README.md "Natural voice replies".
   # Falls back to the browser's own voice automatically if no model is
   # downloaded yet, so this is safe to leave on before you've set it up.
-  enabled: true
+  tts_enabled: true
   # Pick one from https://github.com/OHF-voice/piper1-gpl (voice samples
   # included), then: `python -m piper.download_voices <name> --download-dir <voices_dir>`
   tts_voice: "en_US-amy-medium"
   voices_dir: "~/.boddos/voices"
+
+  # Wake word + command listening via Vosk (a small, fast, fully offline
+  # recognizer) instead of the browser's own SpeechRecognition. Needs
+  # `pip install 'boddos[voice]'` plus a downloaded model — see README.md
+  # "Fast local speech recognition". Falls back to the browser's own
+  # engine automatically if no model is downloaded yet.
+  stt_enabled: true
+  # Download a model from https://alphacephei.com/vosk/models and unzip
+  # its folder here.
+  stt_model_dir: "~/.boddos/stt/vosk-model-small-en-us-0.15"
 
 agent:
   # OS agent runs tasks on THIS machine only. Off by default; opt in per node.

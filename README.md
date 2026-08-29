@@ -275,6 +275,46 @@ its name. Until a model is downloaded, the "New wishes" chat panel shows a
 one-line notice and keeps speaking through the browser instead — nothing
 breaks, it just sounds like the default OS voice until you fetch one.
 
+### Fast local speech recognition (Vosk)
+
+Same split again, this time on the *listening* side: the browser's own
+SpeechRecognition API isn't actually local on Chrome (it streams your mic
+audio to Google's servers to transcribe it) and doesn't exist at all on
+Firefox. This swaps it for [Vosk](https://alphacephei.com/vosk/) — a small,
+fast, fully offline recognizer (`boddos/voice/stt.py`) that runs in real
+time on CPU, so recognition speed and reliability never depend on the local
+chat model's size. The browser streams raw mic audio to the backend over a
+WebSocket (`/ws/voice/stt`) instead of doing recognition itself.
+
+```bash
+pip install -e ".[voice]"
+
+# download a model (the small English one is ~40MB) and unzip it —
+# browse more languages/sizes at https://alphacephei.com/vosk/models
+mkdir -p ~/.boddos/stt && cd ~/.boddos/stt
+curl -LO https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
+unzip vosk-model-small-en-us-0.15.zip && rm vosk-model-small-en-us-0.15.zip
+```
+
+On Windows (PowerShell):
+
+```powershell
+pip install -e ".[voice]"
+
+New-Item -ItemType Directory -Force -Path "$HOME\.boddos\stt" | Out-Null
+Invoke-WebRequest -Uri "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip" -OutFile "$HOME\.boddos\stt\vosk.zip"
+Expand-Archive -Path "$HOME\.boddos\stt\vosk.zip" -DestinationPath "$HOME\.boddos\stt" -Force
+Remove-Item "$HOME\.boddos\stt\vosk.zip"
+```
+
+Same as the voice above: no config edit needed if the folder ends up at
+`~/.boddos/stt/vosk-model-small-en-us-0.15` (matching `voice.stt_model_dir`'s
+default); just restart the backend and reload the browser tab. Until a
+model is downloaded, the mic button falls back to the browser's own
+SpeechRecognition automatically (when the browser has one) with a one-line
+notice explaining why — nothing breaks, it just isn't the fast local engine
+until you fetch one.
+
 The Ogun 3D engineering labs (chemistry, circuits, structures, aerospace,
 biology, materials) each import their heavy library — Cantera, PySpice,
 RocketPy, OpenMM, Biopython, mp-api — lazily, on first actual use, not at
