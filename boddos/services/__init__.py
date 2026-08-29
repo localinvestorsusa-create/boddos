@@ -7,6 +7,9 @@ from .notify import Notifier
 from .push import PushManager
 from .routing import geocode, route, directions
 from .finder import DeviceFinder
+from .smarthome import SmartHomeManager
+from .planner import PlannerStore
+from .news import NewsManager
 
 __all__ = [
     "get_forecast",
@@ -19,4 +22,7 @@ __all__ = [
     "route",
     "directions",
     "DeviceFinder",
+    "SmartHomeManager",
+    "PlannerStore",
+    "NewsManager",
 ]

@@ -27,6 +27,8 @@ screen = ["pyautogui>=0.9.54"]
 finder = ["bleak>=0.21"]
 skills = ["bandit>=1.7"]
 voice = ["piper-tts>=1.7", "vosk>=0.3.45"]
+smarthome = ["python-kasa>=0.10"]
+news = ["duckduckgo-search>=8.0"]
 ogun = [
     "cantera>=3.0", "PySpice>=1.5", "rocketpy>=1.0",
     "openmm>=8.0", "biopython>=1.83", "mp-api>=0.41",

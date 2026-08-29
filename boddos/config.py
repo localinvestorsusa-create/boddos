@@ -133,6 +133,22 @@ class FinderCfg(BaseModel):
     enabled: bool = True
 
 
+class PlannerCfg(BaseModel):
+    # Calendar events, alarms, and a to-do list — one local SQLite file,
+    # no cloud calendar account. Timers are kept client-side only (no
+    # persistence needed for a countdown).
+    enabled: bool = True
+    db_path: str = "~/.boddos/planner.db"
+
+
+class NewsCfg(BaseModel):
+    # AI-curated daily briefing: raw headlines via DuckDuckGo, then
+    # rewritten/selected by the local chat model. Needs `pip install
+    # 'boddos[news]'`.
+    enabled: bool = True
+    cache_minutes: float = 15.0
+
+
 class SkillsCfg(BaseModel):
     # The Skill Portal: fetch -> RepoMix compress -> AST/Bandit gate ->
     # save -> one-click "muscle memory" run. Saving executes an AST/Bandit
@@ -150,6 +166,14 @@ class SkillsCfg(BaseModel):
 class DroneCfg(BaseModel):
     enabled: bool = False
     endpoint: str = ""
+
+
+class SmartHomeCfg(BaseModel):
+    # TP-Link Kasa lights/plugs on your own LAN, found by broadcast
+    # discovery — not a cloud account. Needs `pip install
+    # 'boddos[smarthome]'`; devices must be on the same subnet as this node.
+    enabled: bool = True
+    discovery_timeout_s: float = 5.0
 
 
 class SmtpCfg(BaseModel):
@@ -187,6 +211,9 @@ class ServicesCfg(BaseModel):
     drone: DroneCfg = Field(default_factory=DroneCfg)
     notify: NotifyCfg = Field(default_factory=NotifyCfg)
     push: PushCfg = Field(default_factory=PushCfg)
+    smarthome: SmartHomeCfg = Field(default_factory=SmartHomeCfg)
+    planner: PlannerCfg = Field(default_factory=PlannerCfg)
+    news: NewsCfg = Field(default_factory=NewsCfg)
 
 
 class TrustedContact(BaseModel):

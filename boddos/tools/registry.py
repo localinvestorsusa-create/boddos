@@ -236,6 +236,89 @@ def build_tool_registry(state: Any, cfg: Any) -> dict[str, ToolSpec]:
     register("device_tracking_status", "Get the current tracked device's proximity/trend without starting a new scan.",
              {}, [], _finder_status)
 
+    # --------------------------- smart home ---------------------------
+    async def _smarthome_discover() -> dict:
+        res = await state.smarthome.discover()
+        state.audit.record("smarthome.discover", {"ok": res.ok, "found": len(res.devices), "via": "voice"})
+        return res.to_dict()
+
+    register("list_smart_devices", "Discover TP-Link Kasa smart lights/plugs on this network and their current state.",
+             {}, [], _smarthome_discover)
+
+    async def _smarthome_control(ip: str, action: str, level: int | None = None,
+                                 hue: int | None = None, saturation: int | None = None, value: int | None = None) -> dict:
+        if action == "on":
+            res = await state.smarthome.turn_on(ip)
+        elif action == "off":
+            res = await state.smarthome.turn_off(ip)
+        elif action == "brightness":
+            res = await state.smarthome.set_brightness(ip, level if level is not None else 100)
+        elif action == "color":
+            res = await state.smarthome.set_color(ip, hue or 0, saturation or 0, value if value is not None else 100)
+        else:
+            return {"ok": False, "error": f"unknown action: {action}"}
+        state.audit.record("smarthome.control", {"ok": res.ok, "ip": ip, "action": action, "via": "voice"})
+        return res.to_dict()
+
+    register(
+        "control_smart_device",
+        "Turn a Kasa smart light/plug on or off, or set its brightness (0-100) or HSV color. "
+        "Get the device's ip from list_smart_devices first.",
+        {"ip": {"type": "string"}, "action": {"type": "string", "enum": ["on", "off", "brightness", "color"]},
+         "level": {"type": "integer", "description": "0-100, for action=brightness"},
+         "hue": {"type": "integer"}, "saturation": {"type": "integer"}, "value": {"type": "integer"}},
+        ["ip", "action"], _smarthome_control,
+    )
+
+    # ------------------------------ planner ----------------------------
+    async def _planner_add_event(title: str, start_time: str, end_time: str,
+                                 category: str = "general", description: str = "") -> dict:
+        event = state.planner.add_event(title, start_time, end_time, category, description)
+        state.audit.record("planner.add_event", {"title": title, "via": "voice"})
+        return {"ok": True, "event": event.to_dict()}
+
+    register(
+        "add_calendar_event",
+        "Add a calendar event. Times are 'YYYY-MM-DD HH:MM:SS' in the user's local time.",
+        {"title": {"type": "string"}, "start_time": {"type": "string"}, "end_time": {"type": "string"},
+         "category": {"type": "string"}, "description": {"type": "string"}},
+        ["title", "start_time", "end_time"], _planner_add_event,
+    )
+
+    async def _planner_list_events(date: str | None = None) -> dict:
+        return {"events": [e.to_dict() for e in state.planner.list_events(date)]}
+
+    register("list_calendar_events", "List calendar events for one date ('YYYY-MM-DD'), or every upcoming event if omitted.",
+             {"date": {"type": "string"}}, [], _planner_list_events)
+
+    async def _planner_add_alarm(time: str, label: str = "") -> dict:
+        alarm = state.planner.add_alarm(time, label)
+        state.audit.record("planner.add_alarm", {"time": time, "via": "voice"})
+        return {"ok": True, "alarm": alarm.to_dict()}
+
+    register("add_alarm", "Add an alarm at a given time ('YYYY-MM-DD HH:MM:SS' or 'HH:MM').",
+             {"time": {"type": "string"}, "label": {"type": "string"}}, ["time"], _planner_add_alarm)
+
+    async def _planner_add_task(text: str) -> dict:
+        task = state.planner.add_task(text)
+        state.audit.record("planner.add_task", {"text": text, "via": "voice"})
+        return {"ok": True, "task": task.to_dict()}
+
+    register("add_task", "Add an item to the to-do list.", {"text": {"type": "string"}}, ["text"], _planner_add_task)
+
+    async def _planner_list_tasks() -> dict:
+        return {"tasks": [t.to_dict() for t in state.planner.list_tasks()]}
+
+    register("list_tasks", "List every to-do item and whether it's completed.", {}, [], _planner_list_tasks)
+
+    # ------------------------------- news -------------------------------
+    async def _news_briefing() -> dict:
+        res = await state.news.briefing(cfg.models.default_model)
+        return res.to_dict()
+
+    register("get_news_briefing", "Get a curated briefing of today's top, technology, and science headlines.",
+             {}, [], _news_briefing)
+
     # ------------------------------ mesh ------------------------------
     async def _mesh_nodes() -> dict:
         return {"nodes": [n.to_dict() for n in state.registry.all_nodes()]}

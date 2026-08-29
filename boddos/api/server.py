@@ -32,7 +32,7 @@ from ..tools import build_tool_registry
 from ..voice import TTSEngine, STTEngine, partial_text, final_text
 from ..services import (
     get_forecast, translate_to_english, DroneAdapter, CallingAdapter, geocode, route, directions,
-    DeviceFinder,
+    DeviceFinder, SmartHomeManager, PlannerStore, NewsManager,
 )
 from ..services.notify import Notifier
 from ..services.push import PushManager
@@ -123,6 +123,9 @@ class NodeState:
         self.drone = DroneAdapter(cfg.services.drone)
         self.calling = CallingAdapter(cfg.services.calling)
         self.notifier = Notifier(cfg.services.notify)
+        self.smarthome = SmartHomeManager(cfg.services.smarthome)
+        self.planner = PlannerStore(cfg.services.planner)
+        self.news = NewsManager(cfg.services.news, self.provider)
         self.push = PushManager(
             cfg.services.push.vapid_public, cfg.services.push.vapid_private,
             cfg.services.push.subject, cfg.services.push.store_file,
@@ -800,6 +803,97 @@ def build_app(cfg: Config) -> FastAPI:
     @app.get("/api/finder/status")
     async def api_finder_status():
         return state.finder.status().to_dict()
+
+    # -------------------------- smart home ---------------------------
+    @app.get("/api/smarthome/discover")
+    async def api_smarthome_discover():
+        res = await state.smarthome.discover()
+        state.audit.record("smarthome.discover", {"ok": res.ok, "found": len(res.devices)})
+        return res.to_dict()
+
+    @app.post("/api/smarthome/control")
+    async def api_smarthome_control(req: dict):
+        ip = req.get("ip", "")
+        action = req.get("action", "")
+        if action == "on":
+            res = await state.smarthome.turn_on(ip)
+        elif action == "off":
+            res = await state.smarthome.turn_off(ip)
+        elif action == "brightness":
+            res = await state.smarthome.set_brightness(ip, int(req.get("level", 100)))
+        elif action == "color":
+            res = await state.smarthome.set_color(ip, int(req.get("hue", 0)),
+                                                   int(req.get("saturation", 0)), int(req.get("value", 100)))
+        else:
+            return {"ok": False, "error": f"unknown action: {action}"}
+        state.audit.record("smarthome.control", {"ok": res.ok, "ip": ip, "action": action})
+        return res.to_dict()
+
+    # ----------------------------- planner ---------------------------
+    @app.get("/api/planner/events")
+    async def api_planner_events(date: str | None = None):
+        return {"events": [e.to_dict() for e in state.planner.list_events(date)]}
+
+    @app.post("/api/planner/events")
+    async def api_planner_add_event(req: dict):
+        try:
+            event = state.planner.add_event(
+                req["title"], req["start_time"], req["end_time"],
+                req.get("category", "general"), req.get("description", ""),
+            )
+        except KeyError as e:
+            return JSONResponse({"error": f"missing field: {e}"}, status_code=400)
+        state.audit.record("planner.add_event", {"title": event.title})
+        return event.to_dict()
+
+    @app.delete("/api/planner/events/{event_id}")
+    async def api_planner_delete_event(event_id: str):
+        return {"ok": state.planner.delete_event(event_id)}
+
+    @app.get("/api/planner/alarms")
+    async def api_planner_alarms():
+        return {"alarms": [a.to_dict() for a in state.planner.list_alarms()]}
+
+    @app.post("/api/planner/alarms")
+    async def api_planner_add_alarm(req: dict):
+        try:
+            alarm = state.planner.add_alarm(req["time"], req.get("label", ""))
+        except KeyError as e:
+            return JSONResponse({"error": f"missing field: {e}"}, status_code=400)
+        state.audit.record("planner.add_alarm", {"time": alarm.time})
+        return alarm.to_dict()
+
+    @app.delete("/api/planner/alarms/{alarm_id}")
+    async def api_planner_delete_alarm(alarm_id: str):
+        return {"ok": state.planner.delete_alarm(alarm_id)}
+
+    @app.get("/api/planner/tasks")
+    async def api_planner_tasks():
+        return {"tasks": [t.to_dict() for t in state.planner.list_tasks()]}
+
+    @app.post("/api/planner/tasks")
+    async def api_planner_add_task(req: dict):
+        text = req.get("text", "")
+        if not text.strip():
+            return JSONResponse({"error": "empty task text"}, status_code=400)
+        task = state.planner.add_task(text)
+        state.audit.record("planner.add_task", {"text": text})
+        return task.to_dict()
+
+    @app.post("/api/planner/tasks/{task_id}/toggle")
+    async def api_planner_toggle_task(task_id: str, req: dict):
+        ok = state.planner.toggle_task(task_id, bool(req.get("completed", True)))
+        return {"ok": ok}
+
+    @app.delete("/api/planner/tasks/{task_id}")
+    async def api_planner_delete_task(task_id: str):
+        return {"ok": state.planner.delete_task(task_id)}
+
+    # ------------------------------- news -----------------------------
+    @app.get("/api/news/briefing")
+    async def api_news_briefing(use_ai: bool = True):
+        res = await state.news.briefing(cfg.models.default_model, use_ai)
+        return res.to_dict()
 
     # -------------------------- ogun 3d -----------------------------
     @app.post("/api/ogun/model")
