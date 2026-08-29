@@ -114,21 +114,45 @@ export async function playAudio(bytes: ArrayBuffer, level: PulseLevel, onDone?: 
   tick();
 }
 
+/** Chrome (Windows especially) can have an empty voice list for a moment
+ * after page load and will silently drop a speak() call made before it's
+ * ready — no error, just dead air. Wait for it once, with a timeout so a
+ * browser that never fires the event doesn't hang the caller forever. */
+function ensureVoicesReady(): Promise<void> {
+  const synth = window.speechSynthesis;
+  if (!synth || synth.getVoices().length > 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    const onReady = () => {
+      synth.removeEventListener('voiceschanged', onReady);
+      resolve();
+    };
+    synth.addEventListener('voiceschanged', onReady);
+    setTimeout(() => {
+      synth.removeEventListener('voiceschanged', onReady);
+      resolve();
+    }, 500);
+  });
+}
+
 /** Fallback voice: the browser's own built-in synthesizer, used only when
  * the backend's Piper voice isn't set up yet (see playAudio above, and
  * README.md "Natural voice replies"). Bumps a PulseLevel on each word
  * boundary since there's no real waveform to analyze here. */
-export function speak(text: string, onWord: () => void, onDone?: () => void): void {
+export async function speak(text: string, onWord: () => void, onDone?: () => void): Promise<void> {
   if (!('speechSynthesis' in window) || !text.trim()) {
     onDone?.();
     return;
   }
+  await ensureVoicesReady();
   const utter = new SpeechSynthesisUtterance(text);
   utter.rate = 1.02;
   utter.onboundary = () => onWord();
   utter.onstart = () => onWord();
   utter.onend = () => onDone?.();
-  utter.onerror = () => onDone?.();
+  utter.onerror = (e) => {
+    console.error('browser speech synthesis failed', e);
+    onDone?.();
+  };
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(utter);
 }

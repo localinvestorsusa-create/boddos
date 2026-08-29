@@ -65,6 +65,26 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [turns]);
 
+  /** Speaks `text` aloud through the backend's Piper voice, falling back to
+   * the browser's own synthesizer (with a one-line notice explaining why)
+   * when Piper isn't set up on this node yet. Shared by real replies and
+   * the instant wake-word acknowledgement below. */
+  function announce(text: string) {
+    speakBackend(text, config?.tts_voice)
+      .then((bytes) => {
+        setTtsNotice(null);
+        return playAudio(bytes, replyLevel);
+      })
+      .catch((e) => {
+        console.warn('backend voice unavailable, falling back to browser voice:', e);
+        setTtsNotice(
+          `Using the browser's built-in voice — Piper isn't set up on the backend yet (${e}). ` +
+            'See README.md "Natural voice replies" for the one-time setup.',
+        );
+        speak(text, () => replyLevel.bump(0.4));
+      });
+  }
+
   async function send(text: string) {
     const clean = text.trim();
     if (!clean || busy) return;
@@ -102,18 +122,7 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
           });
         },
       );
-      speakBackend(full, config?.tts_voice)
-        .then((bytes) => {
-          setTtsNotice(null);
-          return playAudio(bytes, replyLevel);
-        })
-        .catch((e) => {
-          setTtsNotice(
-            `Using the browser's built-in voice — Piper isn't set up on the backend yet (${e}). ` +
-              'See README.md "Natural voice replies" for the one-time setup.',
-          );
-          speak(full, () => replyLevel.bump(0.4));
-        });
+      announce(full);
     } catch (e) {
       setTurns((prev) => {
         const next = [...prev];
@@ -141,6 +150,10 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
       onCommand: (text) => sendRef.current(text),
       onModeChange: setVoiceMode,
       onError: setVoiceError,
+      // Instant audible confirmation the moment the wake word lands, so
+      // there's never dead air between "did it hear me?" and the actual
+      // reply — it doesn't wait for you to finish speaking to react.
+      onWake: () => announce(config.greeting || 'Yes?'),
     });
     return () => voiceRef.current?.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -160,11 +173,16 @@ export default function Orunmila({ micLevel, replyLevel }: OrunmilaProps) {
   const name = config?.assistant_name ?? 'Orunmila';
   const micLabel = !speechRecognitionSupported()
     ? '🎙 no browser voice support'
-    : voiceMode === 'active'
-      ? '🔴 listening…'
-      : voiceMode === 'wake'
-        ? `😴 waiting for "hey ${name.toLowerCase()}"`
-        : `🎙 say "hey ${name.toLowerCase()}"`;
+    // busy checked before voiceMode: once a command is captured, voiceMode
+    // drops straight back to "wake" so it can listen for the next one —
+    // without this, the button would silently look idle mid-request.
+    : busy
+      ? '🤔 thinking…'
+      : voiceMode === 'active'
+        ? '🔴 listening…'
+        : voiceMode === 'wake'
+          ? `😴 waiting for "hey ${name.toLowerCase()}"`
+          : `🎙 say "hey ${name.toLowerCase()}"`;
 
   return (
     <div className="section orunmila">

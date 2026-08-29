@@ -222,6 +222,11 @@ def build_app(cfg: Config) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         await _refresh_models()
+        # Fire-and-forget: load the default model into Ollama's memory right
+        # now instead of waiting for someone's first real message to trigger
+        # a multi-second cold load. Doesn't block startup — the server is up
+        # either way, this just means the first reply is fast too.
+        asyncio.create_task(state.provider.preload(cfg.models.default_model))
         tasks = [asyncio.create_task(_heartbeat_loop()),
                  asyncio.create_task(_deadman_loop())]
         try:

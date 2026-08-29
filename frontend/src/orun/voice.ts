@@ -15,6 +15,10 @@ interface VoiceOptions {
   wakeWords: string[];
   onCommand: (text: string) => void;
   onModeChange?: (mode: VoiceMode) => void;
+  /** Fired the instant the wake word itself is heard, before whatever
+   * follows it is known — the cue to give an immediate audible/visual
+   * "yes, go ahead" instead of leaving the user unsure it heard them. */
+  onWake?: () => void;
   /** Fired for errors worth telling the user about — permission denial or
    * no audio device — not the routine no-speech timeouts a continuous
    * recognizer hits constantly while just sitting there listening. */
@@ -71,6 +75,7 @@ export class VoiceController {
       if (this.mode === 'wake') {
         const re = this.wakeRegex();
         if (!re.test(text)) return;
+        this.opts.onWake?.();
         this.setMode('active');
         const after = text.replace(re, '').trim();
         if (after) {

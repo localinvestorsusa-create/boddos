@@ -15,14 +15,37 @@ from .base import ChatMessage
 
 
 class OllamaProvider:
-    def __init__(self, base_url: str = "http://127.0.0.1:11434", timeout: float = 120.0):
+    def __init__(self, base_url: str = "http://127.0.0.1:11434", timeout: float = 120.0,
+                 keep_alive: str = "30m"):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        # Ollama's own default unloads a model from memory 5 minutes after
+        # its last use — the next request then pays a real multi-second
+        # cold-load-from-disk cost before it can generate a single token,
+        # which is what a "it takes forever to even start replying" report
+        # usually is. Asking it to stay resident longer trades idle RAM for
+        # a consistently fast reply on a node people actually talk to.
+        self.keep_alive = keep_alive
 
     async def available(self) -> bool:
         try:
             async with httpx.AsyncClient(timeout=3.0) as c:
                 r = await c.get(f"{self.base_url}/api/tags")
+                return r.status_code == 200
+        except Exception:
+            return False
+
+    async def preload(self, model: str) -> bool:
+        """Load `model` into Ollama's memory now, without generating
+        anything, so the first real chat request doesn't pay the cold-load
+        cost. Ollama's documented convention for this is a normal /api/chat
+        call with an empty messages list. Best-effort — a node that starts
+        before Ollama does (or before the model is pulled) just serves its
+        first real request slowly instead, same as before this existed."""
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as c:
+                r = await c.post(f"{self.base_url}/api/chat",
+                                 json={"model": model, "messages": [], "keep_alive": self.keep_alive})
                 return r.status_code == 200
         except Exception:
             return False
@@ -51,6 +74,7 @@ class OllamaProvider:
             "model": model,
             "messages": self._to_payload(messages, images),
             "stream": False,
+            "keep_alive": self.keep_alive,
         }
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as c:
@@ -69,6 +93,7 @@ class OllamaProvider:
             "model": model,
             "messages": self._to_payload(messages, images),
             "stream": True,
+            "keep_alive": self.keep_alive,
         }
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as c:
@@ -97,7 +122,8 @@ class OllamaProvider:
         OpenAI-style `tools` array and, for a tool-capable model, returns
         `message.tool_calls` (already-parsed argument dicts, not a JSON
         string) instead of/alongside `content` when it wants to call one."""
-        payload = {"model": model, "messages": messages, "tools": tools, "stream": False}
+        payload = {"model": model, "messages": messages, "tools": tools, "stream": False,
+                   "keep_alive": self.keep_alive}
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as c:
                 r = await c.post(f"{self.base_url}/api/chat", json=payload)
