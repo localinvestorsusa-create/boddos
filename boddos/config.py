@@ -27,12 +27,13 @@ class MeshCfg(BaseModel):
 class ModelsCfg(BaseModel):
     provider: str = "ollama"
     ollama_url: str = "http://127.0.0.1:11434"
-    default_model: str = "llama3.1"
-    # Multimodal model for camera vision (pull it: `ollama pull llava`).
-    vision_model: str = "llava"
-    # No ram_gb/has_gpu here — the node detects its own hardware at startup
-    # (boddos/hardware.py) rather than trusting a hand-edited number that
-    # drifts the moment you swap machines or add a GPU.
+    # Blank means "use whatever this machine's own hardware detection
+    # recommends" (boddos/hardware.py, applied in NodeState.__init__) —
+    # never trust a hand-edited number, or a hardcoded model name, that
+    # drifts the moment you swap machines, add a GPU, or just have less
+    # RAM than whoever picked the old default. Set explicitly to pin one.
+    default_model: str = ""
+    vision_model: str = ""
 
 
 class AgentCfg(BaseModel):

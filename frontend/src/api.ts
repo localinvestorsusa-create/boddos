@@ -490,53 +490,79 @@ export interface ToolActivity {
  * can narrate "using X..." live before the final answer streams in.
  * Resolves with the full reply text.
  */
+/** No token, and no `done` event, for this long -> treat it as stuck rather
+ * than leaving the UI's busy state (and the Send button) wedged forever.
+ * Generous on purpose — a small model genuinely running slow on modest
+ * hardware still needs room — but bounded, since a request that never
+ * settles otherwise never lets go of `busy`. */
+const CHAT_STREAM_TIMEOUT_MS = 180_000;
+
 export async function streamChat(
   messages: ChatMessage[],
   onToken: (chunk: string) => void,
   signal?: AbortSignal,
   onTool?: (activity: ToolActivity) => void,
 ): Promise<string> {
-  const res = await fetch('/api/chat/stream', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages }),
-    signal,
-  });
-  if (!res.ok || !res.body) {
-    throw new Error(`chat/stream ${res.status}`);
+  const controller = new AbortController();
+  if (signal) {
+    if (signal.aborted) controller.abort();
+    else signal.addEventListener('abort', () => controller.abort(), { once: true });
   }
+  const timeoutId = setTimeout(() => controller.abort(), CHAT_STREAM_TIMEOUT_MS);
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let full = '';
+  try {
+    const res = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages }),
+      signal: controller.signal,
+    });
+    if (!res.ok || !res.body) {
+      throw new Error(`chat/stream ${res.status}`);
+    }
 
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n\n');
-    buffer = lines.pop() ?? '';
-    for (const line of lines) {
-      const payload = line.replace(/^data:\s*/, '').trim();
-      if (!payload) continue;
-      try {
-        const evt = JSON.parse(payload);
-        if (typeof evt.t === 'string') {
-          full += evt.t;
-          onToken(evt.t);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let full = '';
+
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        const payload = line.replace(/^data:\s*/, '').trim();
+        if (!payload) continue;
+        try {
+          const evt = JSON.parse(payload);
+          if (typeof evt.t === 'string') {
+            full += evt.t;
+            onToken(evt.t);
+          }
+          if (evt.tool_call?.name) {
+            onTool?.({ kind: 'call', name: evt.tool_call.name });
+          }
+          if (evt.tool_result?.name) {
+            onTool?.({ kind: 'result', name: evt.tool_result.name, ok: evt.tool_result.ok });
+          }
+          if (evt.done) return full;
+        } catch {
+          // ignore malformed keepalive lines
         }
-        if (evt.tool_call?.name) {
-          onTool?.({ kind: 'call', name: evt.tool_call.name });
-        }
-        if (evt.tool_result?.name) {
-          onTool?.({ kind: 'result', name: evt.tool_result.name, ok: evt.tool_result.ok });
-        }
-        if (evt.done) return full;
-      } catch {
-        // ignore malformed keepalive lines
       }
     }
+    return full;
+  } catch (e) {
+    if (controller.signal.aborted && !signal?.aborted) {
+      throw new Error(
+        `No reply after ${Math.round(CHAT_STREAM_TIMEOUT_MS / 1000)}s — the model may be too ` +
+        'large for this machine (check Mesh for the recommended size) or Ollama has stopped responding.',
+      );
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return full;
 }

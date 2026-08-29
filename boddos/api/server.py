@@ -82,6 +82,12 @@ class NodeState:
     def __init__(self, cfg: Config):
         self.cfg = cfg
         self.hardware = hardware.detect()
+        # A hardcoded default model doesn't know your RAM — on a 7GB
+        # machine "llama3.1" (an 8B model) isn't a working default, it's a
+        # silent failure mode. Blank config means "trust the hardware
+        # detection this node already ran" instead.
+        cfg.models.default_model = cfg.models.default_model or self.hardware.recommended_model
+        cfg.models.vision_model = cfg.models.vision_model or self.hardware.recommended_vision_model
         me = NodeInfo(
             id=cfg.node.id,
             name=cfg.node.name,

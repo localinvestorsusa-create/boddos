@@ -36,10 +36,14 @@ models:
   # Local model provider. Point at the Ollama instance on this machine.
   provider: "ollama"
   ollama_url: "http://127.0.0.1:11434"
-  # Default advisor model (must be pulled locally: `ollama pull llama3.1`).
-  default_model: "llama3.1"
-  # Multimodal model for camera vision (`ollama pull llava`).
-  vision_model: "llava"
+  # Blank = pull this machine's own hardware-recommended model (see
+  # /api/hardware, and the Mesh tab). Only pin one by name here once you
+  # know it fits your actual RAM — a name that fit someone else's machine
+  # can silently make chat unusable on a smaller one. Whatever you set,
+  # pull it first: `ollama pull <name>`.
+  default_model: ""
+  # Multimodal model for camera vision — same auto-recommendation logic.
+  vision_model: ""
   # No ram_gb/has_gpu here to set — the node detects its own CPU/RAM/GPU
   # at startup (see /api/hardware) and uses that for mesh routing instead.
 
