@@ -74,13 +74,13 @@ from across a room).
 Ollama + models, and writes a config with fresh secrets:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/localinvestorsusa-create/boddos/claude/personal-security-assistant-yi36rv/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/localinvestorsusa-create/boddos/claude/delete-boddos-folder-t8lh8m/install.sh | bash
 ```
 
 Windows (PowerShell):
 
 ```powershell
-irm https://raw.githubusercontent.com/localinvestorsusa-create/boddos/claude/personal-security-assistant-yi36rv/install.ps1 | iex
+irm https://raw.githubusercontent.com/localinvestorsusa-create/boddos/claude/delete-boddos-folder-t8lh8m/install.ps1 | iex
 ```
 
 **Phone, tablet, smart glasses:** no download — open the running node's URL in the

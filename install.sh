@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # BODDOS / Ori one-shot installer for macOS and Linux.
 #
-#   curl -fsSL https://raw.githubusercontent.com/localinvestorsusa-create/boddos/claude/personal-security-assistant-yi36rv/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/localinvestorsusa-create/boddos/claude/delete-boddos-folder-t8lh8m/install.sh | bash
 #
 # One download, boom, running — fully non-interactive by default:
 #   1. Checks Python 3.10+.
@@ -23,7 +23,7 @@
 set -euo pipefail
 
 REPO="https://github.com/localinvestorsusa-create/boddos"
-BRANCH="${BODDOS_BRANCH:-claude/personal-security-assistant-yi36rv}"
+BRANCH="${BODDOS_BRANCH:-claude/delete-boddos-folder-t8lh8m}"
 DEST="${BODDOS_HOME:-$HOME/boddos}"
 PORT="${BODDOS_PORT:-8787}"
 JOIN="${BODDOS_JOIN:-}"

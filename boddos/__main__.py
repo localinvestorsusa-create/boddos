@@ -2,12 +2,33 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 import sys
+from pathlib import Path
 
 import uvicorn
 
 from .config import load_config
 from .api import build_app
+
+
+def _bootstrap_config(path: str) -> bool:
+    """First run, no config yet: copy the example next to `path` instead of
+    hard-failing on something a first-time user wouldn't know to do
+    themselves. Returns True if `path` exists (already did, or just got
+    created)."""
+    target = Path(path)
+    if target.exists():
+        return True
+    example = target.with_name("boddos.example.yaml")
+    if not example.exists():
+        return False
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(example, target)
+    print(f"[setup] no {target} yet — created it from {example.name}.")
+    print(f"[setup] review {target} before relying on it: mesh.psk is a placeholder, "
+          f"safety.trusted_contacts has a placeholder number.")
+    return True
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -27,13 +48,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.join_code:
         from .join import encode
-        try:
-            cfg = load_config(args.config)
-        except FileNotFoundError:
+        if not _bootstrap_config(args.config):
             print(f"config not found: {args.config}\n"
                   f"Copy config/boddos.example.yaml and edit it, or run this once the node "
                   f"has been installed.", file=sys.stderr)
             return 2
+        cfg = load_config(args.config)
         peer = cfg.node.advertise_url or f"http://<this-machine-ip>:{cfg.node.bind_port}"
         token = encode(cfg.mesh.psk, peer)
         print("On the machine you want to add, run the same install one-liner you used here,")
@@ -76,12 +96,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  vapid_private: \"{priv}\"")
         return 0
 
-    try:
-        cfg = load_config(args.config)
-    except FileNotFoundError:
+    if not _bootstrap_config(args.config):
         print(f"config not found: {args.config}\n"
               f"Copy config/boddos.example.yaml and edit it.", file=sys.stderr)
         return 2
+    cfg = load_config(args.config)
 
     host = args.host or cfg.node.bind_host
     port = args.port or cfg.node.bind_port

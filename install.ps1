@@ -1,13 +1,13 @@
 # BODDOS / Ori installer for Windows (PowerShell).
 #
-#   irm https://raw.githubusercontent.com/localinvestorsusa-create/boddos/claude/personal-security-assistant-yi36rv/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/localinvestorsusa-create/boddos/claude/delete-boddos-folder-t8lh8m/install.ps1 | iex
 #
 # Installs BODDOS into %USERPROFILE%\boddos, sets up a venv, generates config
 # with fresh secrets, and tells you how to start Ori. Install Ollama separately
 # from https://ollama.com (then: ollama pull llama3.1 ; ollama pull llava).
 $ErrorActionPreference = "Stop"
 $Repo   = "https://github.com/localinvestorsusa-create/boddos"
-$Branch = if ($env:BODDOS_BRANCH) { $env:BODDOS_BRANCH } else { "claude/personal-security-assistant-yi36rv" }
+$Branch = if ($env:BODDOS_BRANCH) { $env:BODDOS_BRANCH } else { "claude/delete-boddos-folder-t8lh8m" }
 $Dest   = if ($env:BODDOS_HOME)   { $env:BODDOS_HOME }   else { Join-Path $env:USERPROFILE "boddos" }
 $Port   = if ($env:BODDOS_PORT)   { $env:BODDOS_PORT }   else { "8787" }
 
